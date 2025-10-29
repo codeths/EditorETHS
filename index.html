@@ -567,6 +567,43 @@
             color: #569cd6;
         }
 
+        /* Remote Cursor Indicators */
+        .remote-cursor {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 998;
+            pointer-events: none;
+            display: none;
+        }
+
+        .remote-cursor-label {
+            padding: 4px 8px;
+            border-radius: 4px;
+            color: white;
+            font-size: 11px;
+            font-weight: bold;
+            white-space: nowrap;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+            animation: cursorPulse 0.3s ease-in;
+        }
+
+        @keyframes cursorPulse {
+            0% {
+                transform: scale(0.8);
+                opacity: 0;
+            }
+            100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        /* Editor wrapper for cursor positioning */
+        .editor-wrapper {
+            position: relative;
+        }
+
         .container {
             display: flex;
             height: calc(100vh - 61px);
@@ -577,6 +614,7 @@
             display: flex;
             flex-direction: column;
             border-right: 1px solid #3e3e42;
+            position: relative;
         }
 
         .tabs {
@@ -3135,6 +3173,8 @@ ${htmlCode}
         let currentUser = null;
         let participants = new Map();
         let isCollaborating = false;
+        let isReceivingUpdate = false; // Flag to prevent update loops
+        let collaborationListenersAttached = false; // Prevent duplicate listeners
 
         // Initialize socket connection
         function initializeSocket() {
@@ -3172,15 +3212,44 @@ ${htmlCode}
             socket.on('code-update', (data) => {
                 if (!isCollaborating) return;
 
-                const editor = document.getElementById(`${data.editorType}-editor`);
-                if (editor && editor !== document.activeElement) {
-                    const cursorPos = editor.selectionStart;
-                    editor.value = data.content;
-                    editor.selectionStart = editor.selectionEnd = cursorPos;
+                console.log('Received code update:', data.editorType, 'from user:', data.userId);
 
-                    // Update syntax highlighting
+                const editor = document.getElementById(`${data.editorType}-editor`);
+                if (!editor) {
+                    console.error('Editor not found:', data.editorType);
+                    return;
+                }
+
+                // Set flag to prevent echo
+                isReceivingUpdate = true;
+
+                // Save current cursor position for the active editor
+                const isActive = document.activeElement === editor;
+                const savedCursor = isActive ? editor.selectionStart : null;
+
+                // Update the content
+                editor.value = data.content;
+
+                // Restore cursor position if this editor is active
+                if (isActive && savedCursor !== null) {
+                    // Try to maintain cursor position intelligently
+                    const newLength = data.content.length;
+                    const adjustedCursor = Math.min(savedCursor, newLength);
+                    editor.selectionStart = editor.selectionEnd = adjustedCursor;
+                }
+
+                // Update syntax highlighting
+                if (typeof checkSyntax === 'function') {
                     checkSyntax(data.editorType);
                 }
+
+                // Clear flag after a brief delay
+                setTimeout(() => {
+                    isReceivingUpdate = false;
+                }, 50);
+
+                // Show cursor indicator for the remote user
+                showRemoteCursor(data);
             });
 
             socket.on('cursor-update', (data) => {
@@ -3286,11 +3355,15 @@ ${htmlCode}
 
         // Handle code changes in editors
         function handleCollabCodeChange(editorType) {
-            if (!isCollaborating || !socket) return;
+            if (!isCollaborating || !socket || isReceivingUpdate) return;
 
             const editor = document.getElementById(`${editorType}-editor`);
+            if (!editor) return;
+
             const content = editor.value;
             const cursorPosition = editor.selectionStart;
+
+            console.log('Sending code change:', editorType, 'length:', content.length);
 
             socket.emit('code-change', {
                 roomCode: currentRoom,
@@ -3326,13 +3399,30 @@ ${htmlCode}
             document.getElementById('collab-btn').onclick = leaveCollabRoom;
             updateParticipantsList();
 
-            // Attach event listeners to editors
-            ['js', 'html', 'css'].forEach(type => {
-                const editor = document.getElementById(`${type}-editor`);
-                editor.addEventListener('input', () => handleCollabCodeChange(type));
-                editor.addEventListener('click', (e) => handleCursorMove(type, e.target.selectionStart));
-                editor.addEventListener('keyup', (e) => handleCursorMove(type, e.target.selectionStart));
-            });
+            // Only attach event listeners once
+            if (!collaborationListenersAttached) {
+                collaborationListenersAttached = true;
+
+                // Attach event listeners to editors
+                ['js', 'html', 'css'].forEach(type => {
+                    const editor = document.getElementById(`${type}-editor`);
+                    if (editor) {
+                        // Use named functions so we can track them
+                        editor.addEventListener('input', function collabInputHandler() {
+                            handleCollabCodeChange(type);
+                        });
+                        editor.addEventListener('click', function collabClickHandler(e) {
+                            handleCursorMove(type, e.target.selectionStart);
+                        });
+                        editor.addEventListener('keyup', function collabKeyupHandler(e) {
+                            handleCursorMove(type, e.target.selectionStart);
+                        });
+                        console.log('Attached collaboration listeners to', type, 'editor');
+                    } else {
+                        console.error('Editor not found:', type);
+                    }
+                });
+            }
         }
 
         // Hide collaboration UI
@@ -3341,6 +3431,10 @@ ${htmlCode}
             document.getElementById('room-code-display').style.display = 'none';
             document.getElementById('collab-btn').innerHTML = '👥 Collaborate';
             document.getElementById('collab-btn').onclick = showCollabMenu;
+            collaborationListenersAttached = false;
+
+            // Remove cursor indicators
+            document.querySelectorAll('.remote-cursor').forEach(el => el.remove());
         }
 
         // Update participants list
@@ -3360,13 +3454,62 @@ ${htmlCode}
             });
         }
 
+        // Show remote cursor with name indicator
+        function showRemoteCursor(data) {
+            if (!data.cursorPosition) return;
+
+            const participant = participants.get(data.userId);
+            if (!participant) return;
+
+            // Update participant cursor info
+            participant.cursor = { editorType: data.editorType, position: data.cursorPosition };
+
+            // Get the editor element
+            const editor = document.getElementById(`${data.editorType}-editor`);
+            if (!editor) return;
+
+            // Create or update cursor indicator
+            let cursorId = `cursor-${data.userId}`;
+            let cursorIndicator = document.getElementById(cursorId);
+
+            if (!cursorIndicator) {
+                cursorIndicator = document.createElement('div');
+                cursorIndicator.id = cursorId;
+                cursorIndicator.className = 'remote-cursor';
+                cursorIndicator.innerHTML = `
+                    <div class="remote-cursor-label" style="background: ${participant.color}">
+                        ${participant.name}
+                    </div>
+                `;
+                editor.parentElement.appendChild(cursorIndicator);
+            }
+
+            // Position the cursor indicator (simplified - shows at top of editor with user's color)
+            cursorIndicator.style.display = 'block';
+            cursorIndicator.style.borderLeftColor = participant.color;
+
+            // Hide after 3 seconds of inactivity
+            clearTimeout(cursorIndicator.hideTimeout);
+            cursorIndicator.hideTimeout = setTimeout(() => {
+                if (cursorIndicator) {
+                    cursorIndicator.style.display = 'none';
+                }
+            }, 3000);
+        }
+
         // Update remote cursor display
         function updateRemoteCursor(data) {
-            // This is a simplified version - full implementation would show cursor positions
             const participant = participants.get(data.userId);
-            if (participant) {
-                participant.cursor = { editorType: data.editorType, position: data.position };
-            }
+            if (!participant) return;
+
+            participant.cursor = { editorType: data.editorType, position: data.position };
+
+            // Update cursor indicator
+            showRemoteCursor({
+                userId: data.userId,
+                editorType: data.editorType,
+                cursorPosition: data.position
+            });
         }
 
         // Show collaboration menu
