@@ -693,6 +693,7 @@
             flex: 1;
             position: relative;
             overflow: hidden;
+            background: #1e1e1e;
         }
 
         .highlight-layer {
@@ -707,6 +708,7 @@
             overflow: hidden;
             pointer-events: none;
             z-index: 1;
+            background: transparent;
         }
 
         .highlight-layer::-webkit-scrollbar {
@@ -714,17 +716,28 @@
         }
 
         .highlight-layer code {
-            font-family: 'Consolas', 'Monaco', monospace;
-            font-size: 14px;
-            line-height: 1.6;
+            display: block;
+            position: absolute;
+            top: 0;
+            left: 0;
             padding: 20px;
             margin: 0;
             border: 0;
             background: transparent;
-            display: block;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 14px;
+            line-height: 1.6;
+            font-weight: normal;
+            font-style: normal;
+            letter-spacing: normal;
+            word-spacing: normal;
+            text-indent: 0;
             white-space: pre;
             word-wrap: normal;
             overflow-wrap: normal;
+            tab-size: 4;
+            -moz-tab-size: 4;
+            box-sizing: border-box;
         }
 
         .code-editor {
@@ -744,13 +757,20 @@
             font-family: 'Consolas', 'Monaco', monospace;
             font-size: 14px;
             line-height: 1.6;
+            font-weight: normal;
+            font-style: normal;
+            letter-spacing: normal;
+            word-spacing: normal;
+            text-indent: 0;
             resize: none;
             overflow: auto;
             z-index: 2;
             white-space: pre;
             word-wrap: normal;
             overflow-wrap: normal;
-            box-sizing: content-box;
+            tab-size: 4;
+            -moz-tab-size: 4;
+            box-sizing: border-box;
         }
 
         .code-editor:focus {
@@ -1983,11 +2003,12 @@ document.querySelectorAll('nav a').forEach(link => {
             // Apply negative margin to shift line numbers up
             lineNumbers.style.marginTop = `-${scrollTop}px`;
 
-            // Sync highlight layer using transform for pixel-perfect alignment
+            // Sync highlight layer code element using negative margins
             if (highlightLayer && highlightLayer.classList.contains('highlight-layer')) {
                 const code = highlightLayer.querySelector('code');
                 if (code) {
-                    code.style.transform = `translate(${-scrollLeft}px, ${-scrollTop}px)`;
+                    code.style.marginTop = `-${scrollTop}px`;
+                    code.style.marginLeft = `-${scrollLeft}px`;
                 }
             }
         }
