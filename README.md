@@ -216,6 +216,20 @@ PORT=3001 npm start
 - Verify you're in the same room (check the room code)
 - Try refreshing the page and rejoining
 
+### Browser Extension Errors (Grammarly, Iterable, etc.)
+
+If you see errors in the console like:
+```
+grm ERROR [iterable] Not supported: in app messages from Iterable
+```
+
+**This is NOT a bug in the application!** These errors come from browser extensions (Grammarly, Iterable, email tools, etc.) and can be safely ignored. They do not affect the collaboration functionality.
+
+**To eliminate these errors:**
+- Test in Incognito/Private mode (extensions are usually disabled)
+- Temporarily disable browser extensions
+- Or simply ignore them - they won't affect your experience
+
 ## Development
 
 ### Adding New Features

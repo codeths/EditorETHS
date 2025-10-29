@@ -3238,11 +3238,6 @@ ${htmlCode}
                     editor.selectionStart = editor.selectionEnd = adjustedCursor;
                 }
 
-                // Update syntax highlighting
-                if (typeof checkSyntax === 'function') {
-                    checkSyntax(data.editorType);
-                }
-
                 // Clear flag after a brief delay
                 setTimeout(() => {
                     isReceivingUpdate = false;
@@ -3320,11 +3315,6 @@ ${htmlCode}
                     document.getElementById('js-editor').value = response.state.js || '';
                     document.getElementById('html-editor').value = response.state.html || '';
                     document.getElementById('css-editor').value = response.state.css || '';
-
-                    // Update syntax highlighting
-                    checkSyntax('js');
-                    checkSyntax('html');
-                    checkSyntax('css');
 
                     // Load participants
                     response.participants.forEach(p => participants.set(p.id, p));
