@@ -1062,7 +1062,7 @@
     </div>
 
     <!-- Hidden file input for import -->
-    <input type="file" id="fileInput" accept=".html" style="display: none;" onchange="handleFileUpload(event)">
+    <input type="file" id="fileInput" accept=".html,.css,.js" multiple style="display: none;" onchange="handleFileUpload(event)">
 
     <div class="container">
         <!-- Left Panel: Code Editor -->
@@ -2463,48 +2463,35 @@ ${htmlCode}
             const cssCode = document.getElementById('css-editor').value;
             const jsCode = document.getElementById('js-editor').value;
 
-            // Create a complete standalone HTML file
-            // We use special markers so we can split it back apart on import
-            const completeHTML = `<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>${currentProject.name}</title>
-    <style>
-/* ===== ETHS-CSS-START ===== */
-${cssCode}
-/* ===== ETHS-CSS-END ===== */
-    </style>
-</head>
-<body>
-<!-- ===== ETHS-HTML-START ===== -->
-${htmlCode.replace(/<!DOCTYPE html>|<html.*?>|<head>.*?<\/head>|<body>|<\/body>|<\/html>/gi, '')}
-<!-- ===== ETHS-HTML-END ===== -->
+            // Create base filename from project name
+            const baseFilename = currentProject.name.replace(/[^a-z0-9]/gi, '-').toLowerCase();
 
-    <script>
-/* ===== ETHS-JS-START ===== */
-${jsCode}
-/* ===== ETHS-JS-END ===== */
-    <\/script>
-</body>
-</html>`;
+            // Download HTML file
+            const htmlBlob = new Blob([htmlCode], { type: 'text/html' });
+            downloadFile(htmlBlob, `${baseFilename}.html`);
 
-            // Create a blob and download it
-            const blob = new Blob([completeHTML], { type: 'text/html' });
+            // Download CSS file
+            const cssBlob = new Blob([cssCode], { type: 'text/css' });
+            downloadFile(cssBlob, `${baseFilename}.css`);
+
+            // Download JS file
+            const jsBlob = new Blob([jsCode], { type: 'text/javascript' });
+            downloadFile(jsBlob, `${baseFilename}.js`);
+
+            // Show confirmation
+            alert('✅ Your project has been exported!\n\n3 files downloaded:\n• ' + baseFilename + '.html\n• ' + baseFilename + '.css\n• ' + baseFilename + '.js\n\nYou can now:\n• Share these files\n• Import them back later to keep editing');
+        }
+
+        // Helper function to download a file
+        function downloadFile(blob, filename) {
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            // Use project name for filename
-            const filename = currentProject.name.replace(/[^a-z0-9]/gi, '-').toLowerCase() + '.html';
             a.download = filename;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
-
-            // Show confirmation
-            alert('✅ Your project has been exported!\n\nYou can now:\n• Open it in any browser\n• Share it with friends\n• Import it back later to keep editing');
         }
 
         // ============================================
@@ -2517,40 +2504,57 @@ ${jsCode}
         }
 
         function handleFileUpload(event) {
-            const file = event.target.files[0];
-            if (!file) return;
+            const files = event.target.files;
+            if (!files || files.length === 0) return;
 
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                const content = e.target.result;
-                
-                // Try to extract HTML, CSS, and JS from the file using our markers
-                try {
-                    // Extract CSS
-                    const cssMatch = content.match(/\/\* ===== ETHS-CSS-START ===== \*\/([\s\S]*?)\/\* ===== ETHS-CSS-END ===== \*\//);
-                    const cssCode = cssMatch ? cssMatch[1].trim() : '';
+            // Object to store the imported code
+            const imported = {
+                html: null,
+                css: null,
+                js: null,
+                projectName: ''
+            };
 
-                    // Extract HTML
-                    const htmlMatch = content.match(/<!-- ===== ETHS-HTML-START ===== -->([\s\S]*?)<!-- ===== ETHS-HTML-END ===== -->/);
-                    let htmlCode = htmlMatch ? htmlMatch[1].trim() : '';
+            let filesProcessed = 0;
+            const totalFiles = files.length;
 
-                    // Extract JS
-                    const jsMatch = content.match(/\/\* ===== ETHS-JS-START ===== \*\/([\s\S]*?)\/\* ===== ETHS-JS-END ===== \*\//);
-                    const jsCode = jsMatch ? jsMatch[1].trim() : '';
+            // Process each file
+            Array.from(files).forEach(file => {
+                const reader = new FileReader();
 
-                    // Check if we found the markers - if not, this is non-spliced code
-                    if (!cssMatch && !htmlMatch && !jsMatch) {
-                        // No markers found - import entire file as HTML
-                        if (confirm('⚠️ This file was not exported from this editor.\n\nThe entire file will be imported as HTML code.\nCSS and JavaScript will be included in the HTML.\n\nContinue?')) {
-                            const projectName = file.name.replace('.html', '').replace(/-/g, ' ');
+                reader.onload = function(e) {
+                    const content = e.target.result;
+                    const extension = file.name.split('.').pop().toLowerCase();
+
+                    // Assign content based on file extension
+                    if (extension === 'html') {
+                        imported.html = content;
+                        imported.projectName = file.name.replace('.html', '').replace(/-/g, ' ');
+                    } else if (extension === 'css') {
+                        imported.css = content;
+                        if (!imported.projectName) {
+                            imported.projectName = file.name.replace('.css', '').replace(/-/g, ' ');
+                        }
+                    } else if (extension === 'js') {
+                        imported.js = content;
+                        if (!imported.projectName) {
+                            imported.projectName = file.name.replace('.js', '').replace(/-/g, ' ');
+                        }
+                    }
+
+                    filesProcessed++;
+
+                    // Once all files are processed, create the project
+                    if (filesProcessed === totalFiles) {
+                        try {
                             const id = 'project-' + Date.now();
-                            
+
                             currentProject = {
                                 id: id,
-                                name: projectName,
-                                html: content, // Entire file as HTML
-                                css: '/* CSS from imported file is embedded in HTML above */',
-                                js: '// JavaScript from imported file is embedded in HTML above',
+                                name: imported.projectName || 'Imported Project',
+                                html: imported.html || blankHTML,
+                                css: imported.css || blankCSS,
+                                js: imported.js || blankJS,
                                 lastModified: new Date().toISOString()
                             };
 
@@ -2588,85 +2592,25 @@ ${jsCode}
                                 });
                             }
 
-                            alert('✅ File imported successfully!\n\nEntire file imported as HTML.\nEdit the HTML tab to modify CSS and JavaScript.');
+                            // Show success message
+                            const importedFiles = [];
+                            if (imported.html) importedFiles.push('HTML');
+                            if (imported.css) importedFiles.push('CSS');
+                            if (imported.js) importedFiles.push('JS');
+
+                            alert('✅ Files imported successfully!\n\nImported: ' + importedFiles.join(', ') + '\n\nYour code has been saved as a new project: "' + currentProject.name + '"');
+
+                        } catch (error) {
+                            alert('❌ Error importing files.\n\n' + error.message);
+                            console.error('Import error:', error);
                         }
-                        return;
                     }
-                    
-                    // Reconstruct the original HTML format if markers were found
-                    if (htmlCode) {
-                        htmlCode = `<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Imported Project</title>
-</head>
-<body>
-${htmlCode}
-</body>
-</html>`;
-                    }
+                };
 
-                    // Create new project from imported file
-                    const projectName = file.name.replace('.html', '').replace(/-/g, ' ');
-                    const id = 'project-' + Date.now();
-                    
-                    currentProject = {
-                        id: id,
-                        name: projectName,
-                        html: htmlCode || blankHTML,
-                        css: cssCode || blankCSS,
-                        js: jsCode || blankJS,
-                        lastModified: new Date().toISOString()
-                    };
+                reader.readAsText(file);
+            });
 
-                    // Update editors
-                    document.getElementById('html-editor').value = currentProject.html;
-                    document.getElementById('css-editor').value = currentProject.css;
-                    document.getElementById('js-editor').value = currentProject.js;
-                    document.getElementById('project-title').textContent = currentProject.name;
-
-                    // Save project
-                    saveCurrentProject();
-
-                    // Run the code to show it
-                    runCode();
-
-                    // Broadcast to collaboration participants if in collaboration mode
-                    if (isCollaborating && socket && currentRoom) {
-                        socket.emit('code-change', {
-                            roomCode: currentRoom,
-                            editorType: 'html',
-                            content: currentProject.html,
-                            cursorPosition: 0
-                        });
-                        socket.emit('code-change', {
-                            roomCode: currentRoom,
-                            editorType: 'css',
-                            content: currentProject.css,
-                            cursorPosition: 0
-                        });
-                        socket.emit('code-change', {
-                            roomCode: currentRoom,
-                            editorType: 'js',
-                            content: currentProject.js,
-                            cursorPosition: 0
-                        });
-                    }
-
-                    // Show success message
-                    alert('✅ File imported successfully!\n\nYour code has been saved as a new project: "' + projectName + '"');
-
-                } catch (error) {
-                    alert('❌ Error importing file.\n\n' + error.message);
-                    console.error('Import error:', error);
-                }
-            };
-
-            reader.readAsText(file);
-            
-            // Reset file input so the same file can be imported again
+            // Reset file input so the same files can be imported again
             event.target.value = '';
         }
 
