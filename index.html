@@ -705,10 +705,12 @@
             margin: 0;
             padding: 20px;
             border: 0;
-            overflow: hidden;
+            overflow: scroll;
             pointer-events: none;
             z-index: 1;
             background: transparent;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
         }
 
         .highlight-layer::-webkit-scrollbar {
@@ -1990,19 +1992,18 @@ document.querySelectorAll('nav a').forEach(link => {
         function syncScroll(editorType) {
             const editor = document.getElementById(`${editorType}-editor`);
             const lineNumbers = document.getElementById(`${editorType}-line-numbers`);
-            const highlightLayer = editor.previousElementSibling; // The pre.highlight-layer
+            const highlightLayer = editor.previousElementSibling;
 
-            // Calculate the scroll position
             const scrollTop = editor.scrollTop;
             const scrollLeft = editor.scrollLeft;
 
-            // Apply negative margin to shift line numbers up
-            lineNumbers.style.marginTop = `-${scrollTop}px`;
+            // Sync line numbers using transform for better performance
+            lineNumbers.style.transform = `translateY(-${scrollTop}px)`;
 
-            // Sync highlight layer using negative padding adjustments
+            // Sync highlight layer by directly copying scroll position
             if (highlightLayer && highlightLayer.classList.contains('highlight-layer')) {
-                highlightLayer.style.paddingTop = `${20 - scrollTop}px`;
-                highlightLayer.style.paddingLeft = `${20 - scrollLeft}px`;
+                highlightLayer.scrollTop = scrollTop;
+                highlightLayer.scrollLeft = scrollLeft;
             }
         }
 
