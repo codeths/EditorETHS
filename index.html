@@ -3365,6 +3365,9 @@ ${htmlCode}
                     editor.selectionStart = editor.selectionEnd = adjustedCursor;
                 }
 
+                // Automatically update preview with the new code
+                runCode();
+
                 // Clear flag after a brief delay
                 setTimeout(() => {
                     isReceivingUpdate = false;
