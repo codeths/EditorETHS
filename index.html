@@ -458,6 +458,21 @@
             color: #fff;
         }
 
+        .close-room-code-btn {
+            background: transparent;
+            border: none;
+            color: #969696;
+            padding: 4px 8px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.2s;
+            margin-left: 8px;
+        }
+
+        .close-room-code-btn:hover {
+            color: #ff6b6b;
+        }
+
         .collab-panel {
             position: fixed;
             top: 130px;
@@ -651,22 +666,121 @@
             overflow: hidden;
         }
 
-        .code-editor {
+        .editor-with-lines {
             width: 100%;
             height: 100%;
-            padding: 20px;
+            display: flex;
             background: #1e1e1e;
-            color: #d4d4d4;
+        }
+
+        .line-numbers {
+            width: 50px;
+            padding: 20px 10px 20px 10px;
+            background: #252526;
+            color: #858585;
             font-family: 'Consolas', 'Monaco', monospace;
             font-size: 14px;
             line-height: 1.6;
-            border: none;
+            text-align: right;
+            user-select: none;
+            overflow: hidden;
+            border-right: 1px solid #3e3e42;
+            white-space: pre;
+            box-sizing: border-box;
+        }
+
+        .editor-wrapper {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+            background: #1e1e1e;
+        }
+
+        .highlight-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 20px;
+            border: 0;
+            overflow: hidden;
+            pointer-events: none;
+            z-index: 1;
+            background: transparent;
+        }
+
+        .highlight-layer code {
+            display: block;
+            margin: 0;
+            padding: 0;
+            border: 0;
+            background: transparent;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 14px;
+            line-height: 1.6;
+            font-weight: normal;
+            font-style: normal;
+            letter-spacing: normal;
+            word-spacing: normal;
+            text-indent: 0;
+            white-space: pre;
+            word-wrap: normal;
+            overflow-wrap: normal;
+            tab-size: 4;
+            -moz-tab-size: 4;
+        }
+
+        .code-editor,
+        .highlight-layer,
+        .highlight-layer code,
+        .highlight-layer pre {
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace !important;
+            font-size: 14px !important;
+            line-height: 22.4px !important;
+            font-weight: 400 !important;
+            letter-spacing: 0px !important;
+            word-spacing: 0px !important;
+            text-rendering: optimizeLegibility !important;
+            -webkit-font-smoothing: antialiased !important;
+            -moz-osx-font-smoothing: grayscale !important;
+        }
+
+        .code-editor {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            width: 100%;
+            height: 100%;
+            padding: 20px;
+            margin: 0;
+            border: 0;
+            background: transparent;
+            color: transparent;
+            caret-color: white;
+            font-weight: normal;
+            font-style: normal;
+            text-indent: 0;
             resize: none;
-            overflow-y: auto;
+            overflow: auto;
+            z-index: 2;
+            white-space: pre;
+            word-wrap: normal;
+            overflow-wrap: normal;
+            tab-size: 4;
+            -moz-tab-size: 4;
+            box-sizing: border-box;
         }
 
         .code-editor:focus {
             outline: none;
+        }
+
+        .code-editor::selection {
+            background: rgba(38, 79, 120, 0.6);
         }
 
         /* Error indicators */
@@ -966,6 +1080,9 @@
             }
         }
     </style>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/vs2015.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 </head>
 <body>
     <div class="header">
@@ -977,10 +1094,10 @@
             <button class="header-btn" id="collab-btn" onclick="showCollabMenu()" title="Collaborate with others in real-time">
                 👥 Collaborate
             </button>
-            <button class="header-btn" onclick="importCode()" title="Import your saved HTML file">
+            <button class="header-btn" onclick="importCode()" title="Import from zip file or separate HTML/CSS/JS files">
                 📥 Import
             </button>
-            <button class="header-btn" onclick="exportCode()" title="Download as single HTML file">
+            <button class="header-btn" onclick="exportCode()" title="Download as zip file">
                 💾 Export
             </button>
             <button class="header-btn" onclick="resetCode()" title="Reset to original starter code">
@@ -1047,7 +1164,7 @@
     </div>
 
     <!-- Hidden file input for import -->
-    <input type="file" id="fileInput" accept=".html" style="display: none;" onchange="handleFileUpload(event)">
+    <input type="file" id="fileInput" accept=".html,.css,.js,.zip" multiple style="display: none;" onchange="handleFileUpload(event)">
 
     <div class="container">
         <!-- Left Panel: Code Editor -->
@@ -1061,17 +1178,35 @@
                 <div id="html-error" class="error-indicator"></div>
                 <div id="html-status" class="syntax-status"></div>
                 <div id="html-emoji-autocomplete" class="emoji-autocomplete"></div>
-                <textarea id="html-editor" class="code-editor" spellcheck="false"></textarea>
-                
+                <div class="editor-with-lines" id="html-container">
+                    <div class="line-numbers" id="html-line-numbers"></div>
+                    <div class="editor-wrapper">
+                        <pre class="highlight-layer"><code id="html-highlight" class="language-html"></code></pre>
+                        <textarea id="html-editor" class="code-editor" spellcheck="false"></textarea>
+                    </div>
+                </div>
+
                 <div id="css-error" class="error-indicator"></div>
                 <div id="css-status" class="syntax-status"></div>
                 <div id="css-emoji-autocomplete" class="emoji-autocomplete"></div>
-                <textarea id="css-editor" class="code-editor" style="display:none;" spellcheck="false"></textarea>
-                
+                <div class="editor-with-lines" id="css-container" style="display:none;">
+                    <div class="line-numbers" id="css-line-numbers"></div>
+                    <div class="editor-wrapper">
+                        <pre class="highlight-layer"><code id="css-highlight" class="language-css"></code></pre>
+                        <textarea id="css-editor" class="code-editor" spellcheck="false"></textarea>
+                    </div>
+                </div>
+
                 <div id="js-error" class="error-indicator"></div>
                 <div id="js-status" class="syntax-status"></div>
                 <div id="js-emoji-autocomplete" class="emoji-autocomplete"></div>
-                <textarea id="js-editor" class="code-editor" style="display:none;" spellcheck="false"></textarea>
+                <div class="editor-with-lines" id="js-container" style="display:none;">
+                    <div class="line-numbers" id="js-line-numbers"></div>
+                    <div class="editor-wrapper">
+                        <pre class="highlight-layer"><code id="js-highlight" class="language-javascript"></code></pre>
+                        <textarea id="js-editor" class="code-editor" spellcheck="false"></textarea>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -1109,6 +1244,7 @@
             <span class="room-code-label">Room Code:</span>
             <span class="room-code-text" id="room-code-text">------</span>
             <button class="copy-code-btn" onclick="copyRoomCode()" title="Copy room code">📋</button>
+            <button class="close-room-code-btn" onclick="hideRoomCode()" title="Hide room code">✕</button>
         </div>
     </div>
 
@@ -1718,14 +1854,20 @@ document.querySelectorAll('nav a').forEach(link => {
         function loadProject(projectId) {
             const projects = getAllProjects();
             const project = projects.find(p => p.id === projectId);
-            
+
             if (project) {
                 currentProject = project;
                 document.getElementById('html-editor').value = project.html;
                 document.getElementById('css-editor').value = project.css;
                 document.getElementById('js-editor').value = project.js;
                 document.getElementById('project-title').textContent = project.name;
-                
+
+                // Update line numbers and syntax highlighting for all editors
+                ['html', 'css', 'js'].forEach(t => {
+                    updateLineNumbers(t);
+                    updateSyntaxHighlighting(t);
+                });
+
                 // Clear all error indicators when switching projects
                 ['html', 'css', 'js'].forEach(t => {
                     const errorDiv = document.getElementById(`${t}-error`);
@@ -1735,14 +1877,14 @@ document.querySelectorAll('nav a').forEach(link => {
                     statusDiv.className = 'syntax-status';
                     statusDiv.textContent = '';
                 });
-                
+
                 runCode();
-                
+
                 // Check syntax for current tab after loading
                 setTimeout(() => {
                     checkCurrentSyntax();
                 }, 100);
-                
+
                 closeMenu();
             }
         }
@@ -1810,6 +1952,85 @@ document.querySelectorAll('nav a').forEach(link => {
 
         // Current tab tracking
         let currentTab = 'html';
+
+        // ============================================
+        // LINE NUMBERS AND SYNTAX HIGHLIGHTING
+        // ============================================
+
+        function updateLineNumbers(editorType) {
+            const editor = document.getElementById(`${editorType}-editor`);
+            const lineNumbersDiv = document.getElementById(`${editorType}-line-numbers`);
+
+            const lines = editor.value.split('\n');
+            const lineCount = lines.length;
+
+            let lineNumbersText = '';
+            for (let i = 1; i <= lineCount; i++) {
+                lineNumbersText += i + '\n';
+            }
+            // Add extra newline to ensure bottom padding shows
+            lineNumbersText += '\n';
+
+            lineNumbersDiv.textContent = lineNumbersText;
+        }
+
+        function updateSyntaxHighlighting(editorType) {
+            const editor = document.getElementById(`${editorType}-editor`);
+            const highlightCode = document.getElementById(`${editorType}-highlight`);
+
+            // Get the code from the textarea
+            const code = editor.value;
+
+            // Set the code content (highlight.js will handle escaping)
+            highlightCode.textContent = code;
+
+            // Remove old highlighting classes
+            highlightCode.removeAttribute('data-highlighted');
+
+            // Apply syntax highlighting using highlight.js
+            if (window.hljs) {
+                hljs.highlightElement(highlightCode);
+            }
+        }
+
+        function syncScroll(editorType) {
+            const editor = document.getElementById(`${editorType}-editor`);
+            const lineNumbers = document.getElementById(`${editorType}-line-numbers`);
+            const highlightLayer = editor.previousElementSibling;
+
+            const scrollTop = editor.scrollTop;
+            const scrollLeft = editor.scrollLeft;
+
+            // Sync line numbers
+            lineNumbers.style.transform = `translateY(-${scrollTop}px)`;
+
+            // CRITICAL: Update highlight layer position using negative margins instead of scroll
+            if (highlightLayer && highlightLayer.classList.contains('highlight-layer')) {
+                highlightLayer.style.marginTop = `-${scrollTop}px`;
+                highlightLayer.style.marginLeft = `-${scrollLeft}px`;
+            }
+        }
+
+        // Initialize line numbers and syntax highlighting for all editors
+        ['html', 'css', 'js'].forEach(type => {
+            const editor = document.getElementById(`${type}-editor`);
+            const highlightLayer = editor.previousElementSibling;
+
+            // Initial setup
+            updateLineNumbers(type);
+            updateSyntaxHighlighting(type);
+
+            // Update on input
+            editor.addEventListener('input', () => {
+                updateLineNumbers(type);
+                updateSyntaxHighlighting(type);
+            });
+
+            // Sync scroll with margin-based approach
+            editor.addEventListener('scroll', () => {
+                syncScroll(type);
+            }, { passive: true });
+        });
 
         // ============================================
         // MENU FUNCTIONS
@@ -2113,10 +2334,10 @@ document.querySelectorAll('nav a').forEach(link => {
         function switchTab(tab) {
             // Save current tab state first
             currentTab = tab;
-            
-            // Hide all editors and clear ALL error indicators
+
+            // Hide all editor containers and clear ALL error indicators
             ['html', 'css', 'js'].forEach(t => {
-                document.getElementById(`${t}-editor`).style.display = 'none';
+                document.getElementById(`${t}-container`).style.display = 'none';
                 // Force hide all error displays
                 const errorDiv = document.getElementById(`${t}-error`);
                 const statusDiv = document.getElementById(`${t}-status`);
@@ -2129,10 +2350,10 @@ document.querySelectorAll('nav a').forEach(link => {
             // Remove active class from all tabs
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
 
-            // Show selected editor and activate tab
-            document.getElementById(tab + '-editor').style.display = 'block';
+            // Show selected editor container and activate tab
+            document.getElementById(tab + '-container').style.display = 'flex';
             event.target.classList.add('active');
-            
+
             // Check syntax for the new tab after a brief delay to ensure UI is updated
             setTimeout(() => {
                 checkCurrentSyntax();
@@ -2325,8 +2546,10 @@ ${htmlCode}
 </body>
 </html>`;
 
-            // Open new window
-            const previewWindow = window.open('', '_blank', 'width=1024,height=768,menubar=yes,toolbar=yes,location=yes,status=yes,scrollbars=yes,resizable=yes');
+            // Open new window or reuse existing one
+            if (!previewWindow || previewWindow.closed) {
+                previewWindow = window.open('', '_blank', 'width=1024,height=768,menubar=yes,toolbar=yes,location=yes,status=yes,scrollbars=yes,resizable=yes');
+            }
 
             if (previewWindow) {
                 previewWindow.document.open();
@@ -2344,6 +2567,34 @@ ${htmlCode}
                 }
             } else {
                 alert('Pop-up blocked! Please allow pop-ups for this site to use the "Open in New Window" feature.');
+            }
+        }
+
+        // Update external preview window if it's open
+        function updatePreviewWindow() {
+            if (previewWindow && !previewWindow.closed) {
+                const htmlCode = document.getElementById('html-editor').value;
+                const cssCode = document.getElementById('css-editor').value;
+                const jsCode = document.getElementById('js-editor').value;
+
+                const fullHTML = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Preview - ETHS Decision Tree</title>
+    <style>${cssCode}</style>
+</head>
+<body>
+${htmlCode}
+<script>${jsCode}<\/script>
+</body>
+</html>`;
+
+                previewWindow.document.open();
+                previewWindow.document.write(fullHTML);
+                previewWindow.document.close();
             }
         }
 
@@ -2417,48 +2668,36 @@ ${htmlCode}
             const cssCode = document.getElementById('css-editor').value;
             const jsCode = document.getElementById('js-editor').value;
 
-            // Create a complete standalone HTML file
-            // We use special markers so we can split it back apart on import
-            const completeHTML = `<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>${currentProject.name}</title>
-    <style>
-/* ===== ETHS-CSS-START ===== */
-${cssCode}
-/* ===== ETHS-CSS-END ===== */
-    </style>
-</head>
-<body>
-<!-- ===== ETHS-HTML-START ===== -->
-${htmlCode.replace(/<!DOCTYPE html>|<html.*?>|<head>.*?<\/head>|<body>|<\/body>|<\/html>/gi, '')}
-<!-- ===== ETHS-HTML-END ===== -->
+            // Create base filename from project name
+            const baseFilename = currentProject.name.replace(/[^a-z0-9]/gi, '-').toLowerCase();
 
-    <script>
-/* ===== ETHS-JS-START ===== */
-${jsCode}
-/* ===== ETHS-JS-END ===== */
-    <\/script>
-</body>
-</html>`;
+            // Create a new JSZip instance
+            const zip = new JSZip();
 
-            // Create a blob and download it
-            const blob = new Blob([completeHTML], { type: 'text/html' });
+            // Add files to the zip
+            zip.file(`${baseFilename}.html`, htmlCode);
+            zip.file(`${baseFilename}.css`, cssCode);
+            zip.file(`${baseFilename}.js`, jsCode);
+
+            // Generate the zip file and download it
+            zip.generateAsync({ type: 'blob' }).then(function(content) {
+                downloadFile(content, `${baseFilename}.zip`);
+
+                // Show confirmation
+                alert('✅ Your project has been exported!\n\nZip file downloaded:\n• ' + baseFilename + '.zip\n\nContains:\n• ' + baseFilename + '.html\n• ' + baseFilename + '.css\n• ' + baseFilename + '.js\n\nYou can now:\n• Share this file\n• Extract and import the files back later to keep editing');
+            });
+        }
+
+        // Helper function to download a file
+        function downloadFile(blob, filename) {
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            // Use project name for filename
-            const filename = currentProject.name.replace(/[^a-z0-9]/gi, '-').toLowerCase() + '.html';
             a.download = filename;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
-
-            // Show confirmation
-            alert('✅ Your project has been exported!\n\nYou can now:\n• Open it in any browser\n• Share it with friends\n• Import it back later to keep editing');
         }
 
         // ============================================
@@ -2471,113 +2710,192 @@ ${jsCode}
         }
 
         function handleFileUpload(event) {
-            const file = event.target.files[0];
-            if (!file) return;
+            const files = event.target.files;
+            if (!files || files.length === 0) return;
 
+            // Check if there's a zip file
+            const zipFile = Array.from(files).find(file => file.name.toLowerCase().endsWith('.zip'));
+
+            if (zipFile) {
+                // Handle zip file import
+                handleZipImport(zipFile);
+            } else {
+                // Handle separate files or folder import
+                handleSeparateFilesImport(files);
+            }
+
+            // Reset file input so the same files can be imported again
+            event.target.value = '';
+        }
+
+        function handleZipImport(zipFile) {
             const reader = new FileReader();
+
             reader.onload = function(e) {
-                const content = e.target.result;
-                
-                // Try to extract HTML, CSS, and JS from the file using our markers
-                try {
-                    // Extract CSS
-                    const cssMatch = content.match(/\/\* ===== ETHS-CSS-START ===== \*\/([\s\S]*?)\/\* ===== ETHS-CSS-END ===== \*\//);
-                    const cssCode = cssMatch ? cssMatch[1].trim() : '';
-
-                    // Extract HTML
-                    const htmlMatch = content.match(/<!-- ===== ETHS-HTML-START ===== -->([\s\S]*?)<!-- ===== ETHS-HTML-END ===== -->/);
-                    let htmlCode = htmlMatch ? htmlMatch[1].trim() : '';
-
-                    // Extract JS
-                    const jsMatch = content.match(/\/\* ===== ETHS-JS-START ===== \*\/([\s\S]*?)\/\* ===== ETHS-JS-END ===== \*\//);
-                    const jsCode = jsMatch ? jsMatch[1].trim() : '';
-
-                    // Check if we found the markers - if not, this is non-spliced code
-                    if (!cssMatch && !htmlMatch && !jsMatch) {
-                        // No markers found - import entire file as HTML
-                        if (confirm('⚠️ This file was not exported from this editor.\n\nThe entire file will be imported as HTML code.\nCSS and JavaScript will be included in the HTML.\n\nContinue?')) {
-                            const projectName = file.name.replace('.html', '').replace(/-/g, ' ');
-                            const id = 'project-' + Date.now();
-                            
-                            currentProject = {
-                                id: id,
-                                name: projectName,
-                                html: content, // Entire file as HTML
-                                css: '/* CSS from imported file is embedded in HTML above */',
-                                js: '// JavaScript from imported file is embedded in HTML above',
-                                lastModified: new Date().toISOString()
-                            };
-
-                            // Update editors
-                            document.getElementById('html-editor').value = currentProject.html;
-                            document.getElementById('css-editor').value = currentProject.css;
-                            document.getElementById('js-editor').value = currentProject.js;
-                            document.getElementById('project-title').textContent = currentProject.name;
-
-                            // Save project
-                            saveCurrentProject();
-
-                            // Run the code to show it
-                            runCode();
-
-                            alert('✅ File imported successfully!\n\nEntire file imported as HTML.\nEdit the HTML tab to modify CSS and JavaScript.');
-                        }
-                        return;
-                    }
-                    
-                    // Reconstruct the original HTML format if markers were found
-                    if (htmlCode) {
-                        htmlCode = `<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Imported Project</title>
-</head>
-<body>
-${htmlCode}
-</body>
-</html>`;
-                    }
-
-                    // Create new project from imported file
-                    const projectName = file.name.replace('.html', '').replace(/-/g, ' ');
-                    const id = 'project-' + Date.now();
-                    
-                    currentProject = {
-                        id: id,
-                        name: projectName,
-                        html: htmlCode || blankHTML,
-                        css: cssCode || blankCSS,
-                        js: jsCode || blankJS,
-                        lastModified: new Date().toISOString()
+                JSZip.loadAsync(e.target.result).then(function(zip) {
+                    const imported = {
+                        html: null,
+                        css: null,
+                        js: null,
+                        projectName: zipFile.name.replace('.zip', '').replace(/-/g, ' ')
                     };
 
-                    // Update editors
-                    document.getElementById('html-editor').value = currentProject.html;
-                    document.getElementById('css-editor').value = currentProject.css;
-                    document.getElementById('js-editor').value = currentProject.js;
-                    document.getElementById('project-title').textContent = currentProject.name;
+                    const promises = [];
 
-                    // Save project
-                    saveCurrentProject();
+                    // Process each file in the zip
+                    zip.forEach(function(relativePath, zipEntry) {
+                        if (!zipEntry.dir) {
+                            const extension = relativePath.split('.').pop().toLowerCase();
+                            const fileName = relativePath.split('/').pop();
 
-                    // Run the code to show it
-                    runCode();
+                            if (extension === 'html') {
+                                promises.push(zipEntry.async('text').then(content => {
+                                    imported.html = content;
+                                    if (!imported.projectName || imported.projectName === zipFile.name.replace('.zip', '')) {
+                                        imported.projectName = fileName.replace('.html', '').replace(/-/g, ' ');
+                                    }
+                                }));
+                            } else if (extension === 'css') {
+                                promises.push(zipEntry.async('text').then(content => {
+                                    imported.css = content;
+                                }));
+                            } else if (extension === 'js') {
+                                promises.push(zipEntry.async('text').then(content => {
+                                    imported.js = content;
+                                }));
+                            }
+                        }
+                    });
 
-                    // Show success message
-                    alert('✅ File imported successfully!\n\nYour code has been saved as a new project: "' + projectName + '"');
-
-                } catch (error) {
-                    alert('❌ Error importing file.\n\n' + error.message);
-                    console.error('Import error:', error);
-                }
+                    // Wait for all files to be extracted
+                    Promise.all(promises).then(function() {
+                        createProjectFromImport(imported);
+                    }).catch(function(error) {
+                        alert('❌ Error extracting zip file.\n\n' + error.message);
+                        console.error('Zip extraction error:', error);
+                    });
+                }).catch(function(error) {
+                    alert('❌ Error reading zip file.\n\n' + error.message);
+                    console.error('Zip read error:', error);
+                });
             };
 
-            reader.readAsText(file);
-            
-            // Reset file input so the same file can be imported again
-            event.target.value = '';
+            reader.readAsArrayBuffer(zipFile);
+        }
+
+        function handleSeparateFilesImport(files) {
+            // Object to store the imported code
+            const imported = {
+                html: null,
+                css: null,
+                js: null,
+                projectName: ''
+            };
+
+            let filesProcessed = 0;
+            const totalFiles = files.length;
+
+            // Process each file
+            Array.from(files).forEach(file => {
+                const reader = new FileReader();
+
+                reader.onload = function(e) {
+                    const content = e.target.result;
+                    const extension = file.name.split('.').pop().toLowerCase();
+
+                    // Assign content based on file extension
+                    if (extension === 'html') {
+                        imported.html = content;
+                        imported.projectName = file.name.replace('.html', '').replace(/-/g, ' ');
+                    } else if (extension === 'css') {
+                        imported.css = content;
+                        if (!imported.projectName) {
+                            imported.projectName = file.name.replace('.css', '').replace(/-/g, ' ');
+                        }
+                    } else if (extension === 'js') {
+                        imported.js = content;
+                        if (!imported.projectName) {
+                            imported.projectName = file.name.replace('.js', '').replace(/-/g, ' ');
+                        }
+                    }
+
+                    filesProcessed++;
+
+                    // Once all files are processed, create the project
+                    if (filesProcessed === totalFiles) {
+                        createProjectFromImport(imported);
+                    }
+                };
+
+                reader.readAsText(file);
+            });
+        }
+
+        function createProjectFromImport(imported) {
+            try {
+                const id = 'project-' + Date.now();
+
+                currentProject = {
+                    id: id,
+                    name: imported.projectName || 'Imported Project',
+                    html: imported.html || blankHTML,
+                    css: imported.css || blankCSS,
+                    js: imported.js || blankJS,
+                    lastModified: new Date().toISOString()
+                };
+
+                // Update editors
+                document.getElementById('html-editor').value = currentProject.html;
+                document.getElementById('css-editor').value = currentProject.css;
+                document.getElementById('js-editor').value = currentProject.js;
+                document.getElementById('project-title').textContent = currentProject.name;
+
+                // Update line numbers and syntax highlighting for all editors
+                ['html', 'css', 'js'].forEach(t => {
+                    updateLineNumbers(t);
+                    updateSyntaxHighlighting(t);
+                });
+
+                // Save project
+                saveCurrentProject();
+
+                // Run the code to show it
+                runCode();
+
+                // Broadcast to collaboration participants if in collaboration mode
+                if (isCollaborating && socket && currentRoom) {
+                    socket.emit('code-change', {
+                        roomCode: currentRoom,
+                        editorType: 'html',
+                        content: currentProject.html,
+                        cursorPosition: 0
+                    });
+                    socket.emit('code-change', {
+                        roomCode: currentRoom,
+                        editorType: 'css',
+                        content: currentProject.css,
+                        cursorPosition: 0
+                    });
+                    socket.emit('code-change', {
+                        roomCode: currentRoom,
+                        editorType: 'js',
+                        content: currentProject.js,
+                        cursorPosition: 0
+                    });
+                }
+
+                // Show success message
+                const importedFiles = [];
+                if (imported.html) importedFiles.push('HTML');
+                if (imported.css) importedFiles.push('CSS');
+                if (imported.js) importedFiles.push('JS');
+
+                alert('✅ Files imported successfully!\n\nImported: ' + importedFiles.join(', ') + '\n\nYour code has been saved as a new project: "' + currentProject.name + '"');
+
+            } catch (error) {
+                alert('❌ Error importing files.\n\n' + error.message);
+                console.error('Import error:', error);
+            }
         }
 
         // ============================================
@@ -3302,6 +3620,7 @@ ${htmlCode}
         let isCollaborating = false;
         let isReceivingUpdate = false; // Flag to prevent update loops
         let collaborationListenersAttached = false; // Prevent duplicate listeners
+        let previewWindow = null; // Reference to external preview window
 
         // Initialize socket connection
         function initializeSocket() {
@@ -3357,6 +3676,10 @@ ${htmlCode}
                 // Update the content
                 editor.value = data.content;
 
+                // Update line numbers and syntax highlighting
+                updateLineNumbers(data.editorType);
+                updateSyntaxHighlighting(data.editorType);
+
                 // Restore cursor position if this editor is active
                 if (isActive && savedCursor !== null) {
                     // Try to maintain cursor position intelligently
@@ -3364,6 +3687,12 @@ ${htmlCode}
                     const adjustedCursor = Math.min(savedCursor, newLength);
                     editor.selectionStart = editor.selectionEnd = adjustedCursor;
                 }
+
+                // Automatically update preview with the new code
+                runCode();
+
+                // Update external preview window if open
+                updatePreviewWindow();
 
                 // Clear flag after a brief delay
                 setTimeout(() => {
@@ -3442,6 +3771,9 @@ ${htmlCode}
                     document.getElementById('js-editor').value = response.state.js || '';
                     document.getElementById('html-editor').value = response.state.html || '';
                     document.getElementById('css-editor').value = response.state.css || '';
+
+                    // Update preview with the loaded code
+                    runCode();
 
                     // Load participants
                     response.participants.forEach(p => participants.set(p.id, p));
@@ -3645,6 +3977,12 @@ ${htmlCode}
             navigator.clipboard.writeText(code).then(() => {
                 showNotification('Room code copied to clipboard!', 'success');
             });
+        }
+
+        // Hide room code display and participants
+        function hideRoomCode() {
+            document.getElementById('room-code-display').style.display = 'none';
+            document.getElementById('collab-panel').style.display = 'none';
         }
 
         // Show notification
