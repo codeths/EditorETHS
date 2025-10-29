@@ -700,21 +700,15 @@
             position: absolute;
             top: 0;
             left: 0;
-            right: 0;
-            bottom: 0;
+            width: 100%;
+            height: 100%;
             margin: 0;
             padding: 20px;
             border: 0;
-            overflow: scroll;
+            overflow: hidden;
             pointer-events: none;
             z-index: 1;
             background: transparent;
-            scrollbar-width: none;
-            -ms-overflow-style: none;
-        }
-
-        .highlight-layer::-webkit-scrollbar {
-            display: none;
         }
 
         .highlight-layer code {
@@ -739,15 +733,18 @@
         }
 
         .code-editor,
-        .highlight-layer code {
-            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
-            font-size: 14px;
-            line-height: 1.6;
-            letter-spacing: 0;
-            word-spacing: 0;
-            font-variant-ligatures: none;
-            font-feature-settings: normal;
-            text-rendering: geometricPrecision;
+        .highlight-layer,
+        .highlight-layer code,
+        .highlight-layer pre {
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace !important;
+            font-size: 14px !important;
+            line-height: 22.4px !important;
+            font-weight: 400 !important;
+            letter-spacing: 0px !important;
+            word-spacing: 0px !important;
+            text-rendering: optimizeLegibility !important;
+            -webkit-font-smoothing: antialiased !important;
+            -moz-osx-font-smoothing: grayscale !important;
         }
 
         .code-editor {
@@ -2007,13 +2004,10 @@ document.querySelectorAll('nav a').forEach(link => {
             // Sync line numbers
             lineNumbers.style.transform = `translateY(-${scrollTop}px)`;
 
-            // CRITICAL FIX: Force immediate sync before browser paint
+            // CRITICAL: Update highlight layer position using negative margins instead of scroll
             if (highlightLayer && highlightLayer.classList.contains('highlight-layer')) {
-                // Use requestAnimationFrame to ensure sync happens at the right time
-                requestAnimationFrame(() => {
-                    highlightLayer.scrollTop = scrollTop;
-                    highlightLayer.scrollLeft = scrollLeft;
-                });
+                highlightLayer.style.marginTop = `-${scrollTop}px`;
+                highlightLayer.style.marginLeft = `-${scrollLeft}px`;
             }
         }
 
@@ -2032,16 +2026,9 @@ document.querySelectorAll('nav a').forEach(link => {
                 updateSyntaxHighlighting(type);
             });
 
-            // IMPROVED SCROLL SYNC - immediate sync for perfect alignment
+            // Sync scroll with margin-based approach
             editor.addEventListener('scroll', () => {
-                // Immediately sync highlight layer
-                if (highlightLayer && highlightLayer.classList.contains('highlight-layer')) {
-                    highlightLayer.scrollTop = editor.scrollTop;
-                    highlightLayer.scrollLeft = editor.scrollLeft;
-                }
-                // Then update line numbers
-                const lineNumbers = document.getElementById(`${type}-line-numbers`);
-                lineNumbers.style.transform = `translateY(-${editor.scrollTop}px)`;
+                syncScroll(type);
             }, { passive: true });
         });
 
