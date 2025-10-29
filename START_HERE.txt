@@ -1,0 +1,67 @@
+================================================================================
+    ETHS DECISION TREE BUILDER - HOW TO START
+================================================================================
+
+⚠️  IMPORTANT: Do NOT open index.html directly in your browser!
+    You MUST run the Node.js server to use collaboration features.
+
+================================================================================
+QUICK START INSTRUCTIONS
+================================================================================
+
+1. Install Node.js (if not already installed)
+   Download from: https://nodejs.org/
+
+2. Open Terminal/Command Prompt in this folder
+
+3. Install dependencies (first time only):
+   npm install
+
+4. Start the server:
+   npm start
+
+5. Open your browser and go to:
+   http://localhost:3000
+
+================================================================================
+FOR COLLABORATION
+================================================================================
+
+CREATING A ROOM:
+- Click the "👥 Collaborate" button
+- Click OK when asked "Create a new room?"
+- Enter your name
+- Share the 6-character room code with others!
+
+JOINING A ROOM:
+- Click the "👥 Collaborate" button
+- Click Cancel when asked "Create a new room?"
+- Enter the room code you received
+- Enter your name
+- Start collaborating!
+
+================================================================================
+TROUBLESHOOTING
+================================================================================
+
+Error: "Failed to load Socket.IO"
+→ You opened index.html directly. Use "npm start" instead!
+
+Error: "Port 3000 already in use"
+→ Run: PORT=3001 npm start
+
+Error: "npm not found"
+→ Install Node.js from https://nodejs.org/
+
+Cannot connect to collaboration
+→ Make sure the server is running (npm start)
+→ Check your firewall settings
+
+================================================================================
+FOR MORE INFORMATION
+================================================================================
+
+See README.md for complete documentation, deployment instructions,
+and troubleshooting guide.
+
+================================================================================

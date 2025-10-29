@@ -27,7 +27,7 @@ const rooms = new Map();
 //   code: string,
 //   host: socketId,
 //   participants: Map<socketId, { id, name, color, cursor }>,
-//   state: { code, html, css, history },
+//   state: { js, html, css, history },
 //   lastUpdate: timestamp
 // }
 
@@ -67,7 +67,7 @@ io.on('connection', (socket) => {
       code: roomCode,
       host: socket.id,
       participants: new Map(),
-      state: data.initialState || { code: '', html: '', css: '', history: [] },
+      state: data.initialState || { js: '', html: '', css: '', history: [] },
       lastUpdate: Date.now()
     };
 
@@ -156,8 +156,8 @@ io.on('connection', (socket) => {
     if (!room) return;
 
     // Update room state
-    if (editorType === 'code') {
-      room.state.code = content;
+    if (editorType === 'js') {
+      room.state.js = content;
     } else if (editorType === 'html') {
       room.state.html = content;
     } else if (editorType === 'css') {
