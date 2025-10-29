@@ -1,0 +1,2920 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ETHS Decision Tree Builder - Interactive Editor</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            height: 100vh;
+            overflow: hidden;
+            background: #1e1e1e;
+            color: #d4d4d4;
+        }
+
+        .header {
+            background: #2d2d30;
+            padding: 15px 20px;
+            border-bottom: 1px solid #3e3e42;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .hamburger-btn {
+            background: #37373d;
+            color: #d4d4d4;
+            border: 1px solid #3e3e42;
+            padding: 8px 12px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 18px;
+            transition: all 0.2s;
+            width: 40px;
+            height: 40px;
+        }
+
+        .hamburger-btn:hover {
+            background: #4e4e52;
+            color: #fff;
+        }
+
+        .header h1 {
+            font-size: 18px;
+            color: #fff;
+            margin: 0;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        /* Hamburger Menu */
+        .menu-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+            z-index: 999;
+        }
+
+        .menu-overlay.show {
+            display: block;
+        }
+
+        .hamburger-menu {
+            position: fixed;
+            top: 0;
+            left: -300px;
+            width: 300px;
+            height: 100vh;
+            background: #252526;
+            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.3);
+            transition: left 0.3s ease;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .hamburger-menu.open {
+            left: 0;
+        }
+
+        .menu-header {
+            background: #2d2d30;
+            padding: 20px;
+            border-bottom: 1px solid #3e3e42;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .menu-header h2 {
+            color: #fff;
+            font-size: 18px;
+            margin: 0;
+        }
+
+        .close-menu-btn {
+            background: none;
+            border: none;
+            color: #969696;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+        }
+
+        .close-menu-btn:hover {
+            color: #fff;
+        }
+
+        .menu-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+        }
+
+        .menu-btn {
+            width: 100%;
+            background: #37373d;
+            border: 1px solid #3e3e42;
+            color: #d4d4d4;
+            padding: 12px 15px;
+            margin-bottom: 8px;
+            border-radius: 5px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            transition: all 0.2s;
+            font-size: 14px;
+            text-align: left;
+        }
+
+        .menu-btn:hover {
+            background: #4e4e52;
+            color: #fff;
+        }
+
+        .menu-icon {
+            font-size: 18px;
+        }
+
+        .menu-divider {
+            height: 1px;
+            background: #3e3e42;
+            margin: 15px 0;
+        }
+
+        .menu-section-title {
+            color: #969696;
+            font-size: 12px;
+            text-transform: uppercase;
+            padding: 10px 10px 5px;
+            font-weight: bold;
+        }
+
+        .project-list {
+            max-height: calc(100vh - 280px);
+            overflow-y: auto;
+        }
+
+        .project-item {
+            background: #37373d;
+            border: 1px solid #3e3e42;
+            padding: 12px 15px;
+            margin-bottom: 8px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .project-item:hover {
+            background: #4e4e52;
+            border-color: #0e639c;
+        }
+
+        .project-item.active {
+            background: #094771;
+            border-color: #0e639c;
+        }
+
+        .project-info {
+            flex: 1;
+        }
+
+        .project-name {
+            color: #d4d4d4;
+            font-size: 14px;
+            margin-bottom: 4px;
+        }
+
+        .project-date {
+            color: #969696;
+            font-size: 11px;
+        }
+
+        .project-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .project-delete-btn {
+            background: none;
+            border: none;
+            color: #969696;
+            cursor: pointer;
+            padding: 4px;
+            font-size: 16px;
+            transition: color 0.2s;
+        }
+
+        .project-delete-btn:hover {
+            color: #f48771;
+        }
+
+        /* Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+        }
+
+        .modal-overlay.show {
+            display: flex;
+        }
+
+        .modal {
+            background: #252526;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+        }
+
+        .modal-header {
+            background: #2d2d30;
+            padding: 20px;
+            border-bottom: 1px solid #3e3e42;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-radius: 8px 8px 0 0;
+        }
+
+        .modal-header h2 {
+            color: #fff;
+            font-size: 18px;
+            margin: 0;
+        }
+
+        .close-modal-btn {
+            background: none;
+            border: none;
+            color: #969696;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 0;
+        }
+
+        .close-modal-btn:hover {
+            color: #fff;
+        }
+
+        .modal-content {
+            padding: 25px;
+        }
+
+        .modal-content label {
+            display: block;
+            color: #d4d4d4;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+
+        .modal-content input,
+        .modal-content select {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 20px;
+            background: #1e1e1e;
+            border: 1px solid #3e3e42;
+            border-radius: 5px;
+            color: #d4d4d4;
+            font-size: 14px;
+            font-family: inherit;
+        }
+
+        .modal-content input:focus,
+        .modal-content select:focus {
+            outline: none;
+            border-color: #0e639c;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 20px;
+        }
+
+        .cancel-btn {
+            background: #37373d;
+            color: #d4d4d4;
+            border: 1px solid #3e3e42;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .cancel-btn:hover {
+            background: #4e4e52;
+        }
+
+        .create-btn {
+            background: #0e639c;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        .create-btn:hover {
+            background: #1177bb;
+        }
+
+        .header-btn {
+            background: #37373d;
+            color: #d4d4d4;
+            border: 1px solid #3e3e42;
+            padding: 8px 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.2s;
+        }
+
+        .header-btn:hover {
+            background: #4e4e52;
+            color: #fff;
+        }
+
+        .run-btn {
+            background: #0e639c;
+            color: white;
+            border: none;
+            padding: 10px 25px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+
+        .run-btn:hover {
+            background: #1177bb;
+        }
+
+        .save-indicator {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            background: #2d2d30;
+            color: #4ec9b0;
+            padding: 10px 20px;
+            border-radius: 5px;
+            border: 1px solid #3e3e42;
+            font-size: 12px;
+            opacity: 0;
+            transition: opacity 0.3s;
+            z-index: 1000;
+        }
+
+        .save-indicator.show {
+            opacity: 1;
+        }
+
+        .container {
+            display: flex;
+            height: calc(100vh - 61px);
+        }
+
+        .editor-panel {
+            width: 50%;
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid #3e3e42;
+        }
+
+        .tabs {
+            background: #2d2d30;
+            display: flex;
+            border-bottom: 1px solid #3e3e42;
+        }
+
+        .tab {
+            padding: 12px 24px;
+            cursor: pointer;
+            border: none;
+            background: transparent;
+            color: #969696;
+            font-size: 13px;
+            border-right: 1px solid #3e3e42;
+            transition: all 0.2s;
+        }
+
+        .tab:hover {
+            background: #37373d;
+            color: #fff;
+        }
+
+        .tab.active {
+            background: #1e1e1e;
+            color: #fff;
+            border-bottom: 2px solid #0e639c;
+        }
+
+        .editor-content {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .code-editor {
+            width: 100%;
+            height: 100%;
+            padding: 20px;
+            background: #1e1e1e;
+            color: #d4d4d4;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 14px;
+            line-height: 1.6;
+            border: none;
+            resize: none;
+            overflow-y: auto;
+        }
+
+        .code-editor:focus {
+            outline: none;
+        }
+
+        /* Error indicators */
+        .error-indicator {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: #f44336;
+            color: white;
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            display: none;
+            z-index: 10;
+            max-width: 300px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        }
+
+        .error-indicator.show {
+            display: block;
+        }
+
+        .error-indicator.warning {
+            background: #ff9800;
+        }
+
+        .error-indicator.success {
+            background: #4caf50;
+        }
+
+        .syntax-status {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            font-size: 11px;
+            color: #4caf50;
+            background: rgba(76, 175, 80, 0.1);
+            padding: 4px 10px;
+            border-radius: 4px;
+            display: none;
+        }
+
+        .syntax-status.show {
+            display: block;
+        }
+
+        .syntax-status.error {
+            color: #f44336;
+            background: rgba(244, 67, 54, 0.1);
+        }
+
+        /* Emoji Autocomplete */
+        .emoji-autocomplete {
+            position: absolute;
+            background: #2d2d30;
+            border: 1px solid #3e3e42;
+            border-radius: 5px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 1000;
+            display: none;
+            min-width: 200px;
+        }
+
+        .emoji-autocomplete.show {
+            display: block;
+        }
+
+        .emoji-suggestion {
+            padding: 8px 12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: #d4d4d4;
+            font-size: 14px;
+            transition: background 0.1s;
+        }
+
+        .emoji-suggestion:hover,
+        .emoji-suggestion.selected {
+            background: #094771;
+        }
+
+        .emoji-suggestion .emoji-icon {
+            font-size: 18px;
+            width: 24px;
+            text-align: center;
+        }
+
+        .emoji-suggestion .emoji-name {
+            color: #4ec9b0;
+            font-family: monospace;
+        }
+
+        .emoji-autocomplete::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .emoji-autocomplete::-webkit-scrollbar-track {
+            background: #1e1e1e;
+        }
+
+        .emoji-autocomplete::-webkit-scrollbar-thumb {
+            background: #424242;
+            border-radius: 4px;
+        }
+
+        .emoji-autocomplete::-webkit-scrollbar-thumb:hover {
+            background: #4e4e4e;
+        }
+
+        .preview-panel {
+            width: 50%;
+            background: white;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .preview-header {
+            background: #f3f3f3;
+            padding: 12px 20px;
+            border-bottom: 1px solid #ddd;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .preview-title {
+            font-weight: bold;
+            color: #333;
+        }
+
+        .clear-console-btn {
+            background: #e0e0e0;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            color: #666;
+        }
+
+        .clear-console-btn:hover {
+            background: #d0d0d0;
+        }
+
+        .preview-content {
+            flex: 1;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+        }
+
+        iframe {
+            width: 100%;
+            flex: 1;
+            border: none;
+        }
+
+        .console-panel {
+            height: 150px;
+            background: #1e1e1e;
+            border-top: 1px solid #3e3e42;
+            overflow-y: auto;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 13px;
+            padding: 10px;
+            color: #d4d4d4;
+        }
+
+        .console-entry {
+            padding: 4px 0;
+            border-bottom: 1px solid #2d2d30;
+        }
+
+        .console-log {
+            color: #d4d4d4;
+        }
+
+        .console-error {
+            color: #f48771;
+        }
+
+        .console-warn {
+            color: #dcdcaa;
+        }
+
+        .console-info {
+            color: #4ec9b0;
+        }
+
+        /* Syntax highlighting colors */
+        .code-editor::selection {
+            background: #264f78;
+        }
+
+        /* Instructions panel */
+        .instructions {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #2d2d30;
+            padding: 15px 20px;
+            border-radius: 8px;
+            border: 1px solid #3e3e42;
+            max-width: 300px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            z-index: 1000;
+        }
+
+        .instructions h3 {
+            color: #fff;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+
+        .instructions p {
+            color: #969696;
+            font-size: 12px;
+            line-height: 1.5;
+        }
+
+        .close-instructions {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: none;
+            border: none;
+            color: #969696;
+            cursor: pointer;
+            font-size: 18px;
+        }
+
+        .close-instructions:hover {
+            color: #fff;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .container {
+                flex-direction: column;
+            }
+            
+            .editor-panel, .preview-panel {
+                width: 100%;
+                height: 50%;
+            }
+
+            .instructions {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-left">
+            <button class="hamburger-btn" onclick="toggleMenu()">☰</button>
+            <h1 id="project-title">🎓 ETHS Decision Tree Builder</h1>
+        </div>
+        <div class="header-actions">
+            <button class="header-btn" onclick="importCode()" title="Import your saved HTML file">
+                📥 Import
+            </button>
+            <button class="header-btn" onclick="exportCode()" title="Download as single HTML file">
+                💾 Export
+            </button>
+            <button class="header-btn" onclick="resetCode()" title="Reset to original starter code">
+                🔄 Reset
+            </button>
+            <button class="run-btn" onclick="runCode()">▶ Run Code</button>
+        </div>
+    </div>
+
+    <!-- Hamburger Menu Overlay -->
+    <div class="menu-overlay" id="menuOverlay" onclick="closeMenu()"></div>
+    
+    <!-- Hamburger Menu -->
+    <div class="hamburger-menu" id="hamburgerMenu">
+        <div class="menu-header">
+            <h2>Projects</h2>
+            <button class="close-menu-btn" onclick="closeMenu()">×</button>
+        </div>
+        
+        <div class="menu-content">
+            <button class="menu-btn" onclick="createNewProject()">
+                <span class="menu-icon">➕</span>
+                <span>New Project</span>
+            </button>
+            
+            <button class="menu-btn" onclick="importProject()">
+                <span class="menu-icon">📁</span>
+                <span>Open from Device</span>
+            </button>
+            
+            <div class="menu-divider"></div>
+            
+            <div class="menu-section-title">Recent Projects</div>
+            <div id="projectList" class="project-list">
+                <!-- Projects will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- New Project Modal -->
+    <div class="modal-overlay" id="newProjectModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2>Create New Project</h2>
+                <button class="close-modal-btn" onclick="closeNewProjectModal()">×</button>
+            </div>
+            <div class="modal-content">
+                <label for="projectName">Project Name:</label>
+                <input type="text" id="projectName" placeholder="My Awesome Decision Tree" />
+                
+                <label for="projectTemplate">Template:</label>
+                <select id="projectTemplate">
+                    <option value="decision-tree">ETHS Decision Tree (Default)</option>
+                    <option value="blank">Blank Project</option>
+                    <option value="simple-page">Simple Webpage</option>
+                </select>
+                
+                <div class="modal-actions">
+                    <button class="cancel-btn" onclick="closeNewProjectModal()">Cancel</button>
+                    <button class="create-btn" onclick="confirmNewProject()">Create Project</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden file input for import -->
+    <input type="file" id="fileInput" accept=".html" style="display: none;" onchange="handleFileUpload(event)">
+
+    <div class="container">
+        <!-- Left Panel: Code Editor -->
+        <div class="editor-panel">
+            <div class="tabs">
+                <button class="tab active" onclick="switchTab('html')">HTML</button>
+                <button class="tab" onclick="switchTab('css')">CSS</button>
+                <button class="tab" onclick="switchTab('js')">JavaScript</button>
+            </div>
+            <div class="editor-content">
+                <div id="html-error" class="error-indicator"></div>
+                <div id="html-status" class="syntax-status"></div>
+                <div id="html-emoji-autocomplete" class="emoji-autocomplete"></div>
+                <textarea id="html-editor" class="code-editor" spellcheck="false"></textarea>
+                
+                <div id="css-error" class="error-indicator"></div>
+                <div id="css-status" class="syntax-status"></div>
+                <div id="css-emoji-autocomplete" class="emoji-autocomplete"></div>
+                <textarea id="css-editor" class="code-editor" style="display:none;" spellcheck="false"></textarea>
+                
+                <div id="js-error" class="error-indicator"></div>
+                <div id="js-status" class="syntax-status"></div>
+                <div id="js-emoji-autocomplete" class="emoji-autocomplete"></div>
+                <textarea id="js-editor" class="code-editor" style="display:none;" spellcheck="false"></textarea>
+            </div>
+        </div>
+
+        <!-- Right Panel: Live Preview -->
+        <div class="preview-panel">
+            <div class="preview-header">
+                <span class="preview-title">Live Preview</span>
+                <button class="clear-console-btn" onclick="clearConsole()">Clear Console</button>
+            </div>
+            <div class="preview-content">
+                <iframe id="preview" sandbox="allow-scripts allow-same-origin"></iframe>
+                <div class="console-panel" id="console">
+                    <div class="console-entry console-info">Console ready. Use console.log() to see output here!</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Save Indicator -->
+    <div class="save-indicator" id="saveIndicator">
+        ✓ Auto-saved
+    </div>
+
+    <!-- Instructions -->
+    <div class="instructions" id="instructions">
+        <button class="close-instructions" onclick="closeInstructions()">×</button>
+        <h3>🎓 Quick Start Guide</h3>
+        <p>
+            1. Switch between HTML, CSS, and JavaScript tabs<br>
+            2. Edit the code<br>
+            3. Click "Run Code" to see changes<br>
+            4. Try adding your own questions!
+        </p>
+        <h3>✨ Smart Autocomplete</h3>
+        <p style="font-size: 13px; margin-top: 10px;">
+            <strong>HTML:</strong> Type <code>&lt;!DOCTYPE html&gt;</code> for full boilerplate<br>
+            <strong>Tags:</strong> <code>&lt;div&gt;</code>, <code>&lt;img&gt;</code>, <code>&lt;a&gt;</code> auto-complete<br>
+            <strong>CSS:</strong> <code>@media</code>, <code>flexbox</code>, <code>grid</code> shortcuts<br>
+            <strong>JS:</strong> <code>function()</code>, <code>class</code>, <code>fetch</code> templates
+        </p>
+        <h3>😎 Emoji Shortcuts</h3>
+        <p style="font-size: 13px; margin-top: 10px;">
+            Type <code>:emoji_name:</code> to insert emojis!<br>
+            Examples: <code>:fire:</code> 🔥 | <code>:heart:</code> ❤️ | <code>:rocket:</code> 🚀 | <code>:thumbsup:</code> 👍
+        </p>
+    </div>
+
+    <script>
+        // ============================================
+        // INITIAL CODE TEMPLATES
+        // ============================================
+        // These are the starting templates that students begin with
+        
+        const initialHTML = `<!-- 
+=========================================
+ETHS DECISION TREE - HTML STRUCTURE
+=========================================
+This is the skeleton of your page.
+Think of HTML as the bones - it defines WHAT goes on the page.
+-->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ETHS Elective Chooser</title>
+</head>
+<body>
+    <!-- This div will hold all our questions and results -->
+    <div class="container">
+        <div id="content">
+            <!-- JavaScript will put content here -->
+        </div>
+    </div>
+</body>
+</html>`;
+
+        const initialCSS = `/* 
+=========================================
+ETHS DECISION TREE - STYLING (CSS)
+=========================================
+This is the "makeup" - it defines HOW things look.
+Change colors, sizes, spacing, etc. here!
+*/
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    background: white;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 40px 20px;
+}
+
+.container {
+    background: white;
+    padding: 40px;
+    max-width: 900px;
+    width: 100%;
+}
+
+.question-box {
+    text-align: center;
+}
+
+h1 {
+    color: black;
+    margin-bottom: 40px;
+    font-size: 20px;
+    font-weight: normal;
+}
+
+/* The pink rounded box for questions */
+.question {
+    font-size: 16px;
+    color: black;
+    margin-bottom: 40px;
+    line-height: 1.5;
+    background: #FFB6C1;  /* Pink color - try changing this! */
+    padding: 25px 40px;
+    border-radius: 50px;
+    display: inline-block;
+    min-width: 300px;
+}
+
+.options {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    align-items: center;
+}
+
+/* The blue rounded buttons for answer choices */
+.option-btn {
+    background: #B0C4DE;  /* Light blue - try changing this! */
+    color: black;
+    border: none;
+    padding: 20px 40px;
+    font-size: 15px;
+    border-radius: 50px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    min-width: 280px;
+    text-align: center;
+}
+
+.option-btn:hover {
+    background: #9FB3D0;  /* Darker blue on hover */
+    transform: scale(1.05);  /* Slightly bigger on hover */
+}
+
+.back-btn {
+    background: #D9D9D9;  /* Gray */
+    color: black;
+    border: none;
+    padding: 12px 30px;
+    font-size: 14px;
+    border-radius: 25px;
+    cursor: pointer;
+    margin-top: 30px;
+    transition: all 0.2s ease;
+}
+
+.back-btn:hover {
+    background: #C0C0C0;
+}
+
+.result-box {
+    text-align: center;
+    padding: 20px;
+}
+
+.result-title {
+    color: black;
+    font-size: 18px;
+    margin-bottom: 25px;
+    font-weight: bold;
+    background: #B0C4DE;
+    padding: 25px 40px;
+    border-radius: 50px;
+    display: inline-block;
+}
+
+.result-description {
+    color: black;
+    font-size: 15px;
+    line-height: 1.6;
+    max-width: 600px;
+    margin: 0 auto 30px;
+}
+
+.restart-btn {
+    background: #FFB6C1;
+    color: black;
+    border: none;
+    padding: 15px 40px;
+    font-size: 15px;
+    border-radius: 25px;
+    cursor: pointer;
+    margin-top: 20px;
+    transition: all 0.2s ease;
+}
+
+.restart-btn:hover {
+    background: #FFA0B0;
+}
+
+.breadcrumb {
+    color: #666;
+    font-size: 13px;
+    margin-bottom: 20px;
+    text-align: center;
+}`;
+
+        const initialJS = `/* 
+=========================================
+ETHS DECISION TREE - JAVASCRIPT (THE BRAIN)
+=========================================
+This makes your page INTERACTIVE!
+JavaScript controls what happens when you click buttons.
+*/
+
+// ============================================
+// PART 1: THE DECISION TREE (Your Questions & Results)
+// ============================================
+// This object is like a Choose-Your-Own-Adventure book.
+// Each "node" is a page in the book.
+
+const decisionTree = {
+    // The first question (starting point)
+    start: {
+        type: "question",
+        question: "What type of ETHS elective are you interested in?",
+        options: [
+            { text: "Arts & Creativity", next: "arts_type" },
+            { text: "Career & Technical", next: "cte_type" },
+            { text: "I want to explore!", next: "result_explore" }
+        ]
+    },
+
+    // Second level: Arts
+    arts_type: {
+        type: "question",
+        question: "Which area of arts interests you?",
+        options: [
+            { text: "Visual Arts (Drawing, Painting)", next: "result_visual" },
+            { text: "Music (Band, Orchestra, Choir)", next: "result_music" },
+            { text: "Theatre & Performance", next: "result_theatre" }
+        ]
+    },
+
+    // Second level: CTE
+    cte_type: {
+        type: "question",
+        question: "Which career path interests you?",
+        options: [
+            { text: "Computer Science & Tech", next: "result_cs" },
+            { text: "Engineering (PLTW)", next: "result_engineering" },
+            { text: "Business & Entrepreneurship", next: "result_business" }
+        ]
+    },
+
+    // RESULTS (Final recommendations)
+    result_visual: {
+        type: "result",
+        title: "Visual Arts",
+        description: "Take Drawing & Painting, Ceramics, or Digital Photography to explore your creativity!"
+    },
+
+    result_music: {
+        type: "result",
+        title: "Music Program",
+        description: "Join Band, Orchestra, or Choir! ETHS music groups perform at regional and national venues."
+    },
+
+    result_theatre: {
+        type: "result",
+        title: "Theatre & Performance",
+        description: "Try Theatre 1-3 or audition for ETHS productions including the famous YAMO sketch comedy show!"
+    },
+
+    result_cs: {
+        type: "result",
+        title: "Computer Science",
+        description: "Study programming, web design, and app development. Build real projects!"
+    },
+
+    result_engineering: {
+        type: "result",
+        title: "Engineering (PLTW)",
+        description: "Project Lead The Way courses give you hands-on engineering experience. Plus you get a 1.0 GPA boost!"
+    },
+
+    result_business: {
+        type: "result",
+        title: "Business Education",
+        description: "Learn accounting, marketing, and entrepreneurship. Start your own business!"
+    },
+
+    result_explore: {
+        type: "result",
+        title: "Explore Everything!",
+        description: "Talk to your counselor about sampling different electives each semester. ETHS has 100+ options!"
+    }
+};
+
+// ============================================
+// PART 2: TRACKING WHERE WE ARE
+// ============================================
+// These variables remember your current position
+
+let currentNode = "start";  // Where you are now (starts at first question)
+let history = [];            // Where you've been (for the back button)
+
+// ============================================
+// PART 3: THE MAIN FUNCTION - RENDER
+// ============================================
+// This decides what to show on screen
+
+function render() {
+    // Look up the current node in our tree
+    const node = decisionTree[currentNode];
+    
+    // Is it a question or a result?
+    if (node.type === "question") {
+        renderQuestion(node);
+    } else if (node.type === "result") {
+        renderResult(node);
+    }
+}
+
+// ============================================
+// PART 4: SHOWING A QUESTION
+// ============================================
+function renderQuestion(node) {
+    const content = document.getElementById("content");
+    
+    // Build the breadcrumb
+    let breadcrumb = "";
+    if (history.length > 0) {
+        breadcrumb = \`<div class="breadcrumb">Step \${history.length + 1}</div>\`;
+    }
+
+    // Start building the HTML
+    let html = \`
+        \${breadcrumb}
+        <div class="question-box">
+            <h1>ETHS Elective Chooser</h1>
+            <div class="question">\${node.question}</div>
+            <div class="options">
+    \`;
+
+    // Add a button for each option
+    node.options.forEach((option) => {
+        html += \`
+            <button class="option-btn" onclick="selectOption('\${option.next}')">
+                \${option.text}
+            </button>
+        \`;
+    });
+
+    html += \`</div>\`;
+
+    // Add back button if not on first question
+    if (history.length > 0) {
+        html += \`<button class="back-btn" onclick="goBack()">← Back</button>\`;
+    }
+
+    html += \`</div>\`;
+
+    // Put the HTML on the page
+    content.innerHTML = html;
+}
+
+// ============================================
+// PART 5: SHOWING A RESULT
+// ============================================
+function renderResult(node) {
+    const content = document.getElementById("content");
+    
+    const html = \`
+        <div class="result-box">
+            <div class="breadcrumb">Final Result</div>
+            <h1 class="result-title">\${node.title}</h1>
+            <div class="result-description">\${node.description}</div>
+            <button class="restart-btn" onclick="restart()">Start Over</button>
+            <button class="back-btn" onclick="goBack()">← Back</button>
+        </div>
+    \`;
+
+    content.innerHTML = html;
+}
+
+// ============================================
+// PART 6: USER INTERACTIONS
+// ============================================
+
+// When user clicks an option button
+function selectOption(nextNode) {
+    history.push(currentNode);  // Remember where we were
+    currentNode = nextNode;      // Move to new location
+    render();                    // Show the new screen
+}
+
+// When user clicks Back button
+function goBack() {
+    if (history.length > 0) {
+        currentNode = history.pop();  // Go back to previous location
+        render();
+    }
+}
+
+// When user clicks Start Over
+function restart() {
+    currentNode = "start";
+    history = [];
+    render();
+}
+
+// ============================================
+// START THE APP!
+// ============================================
+// This runs when the page first loads
+render();`;
+
+        // Blank templates for new projects
+        const blankHTML = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Project</title>
+</head>
+<body>
+    <h1>Hello World!</h1>
+</body>
+</html>`;
+
+        const blankCSS = `/* Your CSS here */
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 20px;
+}`;
+
+        const blankJS = `// Your JavaScript here
+console.log("Hello, World!");`;
+
+        // Simple page template
+        const simpleHTML = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Webpage</title>
+</head>
+<body>
+    <header>
+        <h1>My Awesome Webpage</h1>
+        <nav>
+            <a href="#about">About</a>
+            <a href="#contact">Contact</a>
+        </nav>
+    </header>
+    
+    <main>
+        <section id="about">
+            <h2>About</h2>
+            <p>Welcome to my page!</p>
+        </section>
+        
+        <section id="contact">
+            <h2>Contact</h2>
+            <p>Email: student@eths.k12.il.us</p>
+        </section>
+    </main>
+    
+    <footer>
+        <p>&copy; 2025 My Website</p>
+    </footer>
+</body>
+</html>`;
+
+        const simpleCSS = `/* Simple page styling */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    line-height: 1.6;
+}
+
+header {
+    background: #333;
+    color: white;
+    padding: 20px;
+    text-align: center;
+}
+
+nav {
+    margin-top: 10px;
+}
+
+nav a {
+    color: white;
+    text-decoration: none;
+    margin: 0 15px;
+}
+
+nav a:hover {
+    text-decoration: underline;
+}
+
+main {
+    max-width: 800px;
+    margin: 40px auto;
+    padding: 0 20px;
+}
+
+section {
+    margin-bottom: 40px;
+}
+
+footer {
+    background: #f4f4f4;
+    text-align: center;
+    padding: 20px;
+    margin-top: 40px;
+}`;
+
+        const simpleJS = `// Add interactivity
+console.log("Page loaded!");
+
+// Smooth scrolling for nav links
+document.querySelectorAll('nav a').forEach(link => {
+    link.addEventListener('click', function(e) {
+        e.preventDefault();
+        const target = document.querySelector(this.getAttribute('href'));
+        target.scrollIntoView({ behavior: 'smooth' });
+    });
+});`;
+
+        // ============================================
+        // PROJECT MANAGEMENT
+        // ============================================
+        
+        let currentProject = {
+            id: 'default',
+            name: '🎓 ETHS Decision Tree Builder',
+            html: initialHTML,
+            css: initialCSS,
+            js: initialJS,
+            lastModified: new Date().toISOString()
+        };
+
+        // Get all projects from localStorage
+        function getAllProjects() {
+            const projectsJson = localStorage.getItem('eths-projects');
+            if (!projectsJson) {
+                // Create default project if none exist
+                const defaultProject = {
+                    id: 'default',
+                    name: '🎓 ETHS Decision Tree Builder',
+                    html: initialHTML,
+                    css: initialCSS,
+                    js: initialJS,
+                    lastModified: new Date().toISOString()
+                };
+                const projects = [defaultProject];
+                localStorage.setItem('eths-projects', JSON.stringify(projects));
+                return projects;
+            }
+            return JSON.parse(projectsJson);
+        }
+
+        // Save all projects to localStorage
+        function saveAllProjects(projects) {
+            localStorage.setItem('eths-projects', JSON.stringify(projects));
+        }
+
+        // Save current project
+        function saveCurrentProject() {
+            currentProject.html = document.getElementById('html-editor').value;
+            currentProject.css = document.getElementById('css-editor').value;
+            currentProject.js = document.getElementById('js-editor').value;
+            currentProject.lastModified = new Date().toISOString();
+            
+            const projects = getAllProjects();
+            const index = projects.findIndex(p => p.id === currentProject.id);
+            
+            if (index >= 0) {
+                projects[index] = currentProject;
+            } else {
+                projects.push(currentProject);
+            }
+            
+            saveAllProjects(projects);
+            updateProjectList();
+        }
+
+        // Load a project
+        function loadProject(projectId) {
+            const projects = getAllProjects();
+            const project = projects.find(p => p.id === projectId);
+            
+            if (project) {
+                currentProject = project;
+                document.getElementById('html-editor').value = project.html;
+                document.getElementById('css-editor').value = project.css;
+                document.getElementById('js-editor').value = project.js;
+                document.getElementById('project-title').textContent = project.name;
+                
+                // Clear all error indicators when switching projects
+                ['html', 'css', 'js'].forEach(t => {
+                    const errorDiv = document.getElementById(`${t}-error`);
+                    const statusDiv = document.getElementById(`${t}-status`);
+                    errorDiv.className = 'error-indicator';
+                    errorDiv.textContent = '';
+                    statusDiv.className = 'syntax-status';
+                    statusDiv.textContent = '';
+                });
+                
+                runCode();
+                
+                // Check syntax for current tab after loading
+                setTimeout(() => {
+                    checkCurrentSyntax();
+                }, 100);
+                
+                closeMenu();
+            }
+        }
+
+        // Update project list in menu
+        function updateProjectList() {
+            const projects = getAllProjects();
+            const projectList = document.getElementById('projectList');
+            
+            if (projects.length === 0) {
+                projectList.innerHTML = '<div style="padding: 20px; text-align: center; color: #969696;">No projects yet</div>';
+                return;
+            }
+            
+            projectList.innerHTML = projects.map(project => `
+                <div class="project-item ${project.id === currentProject.id ? 'active' : ''}" onclick="loadProject('${project.id}')">
+                    <div class="project-info">
+                        <div class="project-name">${project.name}</div>
+                        <div class="project-date">${formatDate(project.lastModified)}</div>
+                    </div>
+                    <div class="project-actions">
+                        ${project.id !== 'default' ? `<button class="project-delete-btn" onclick="event.stopPropagation(); deleteProject('${project.id}')" title="Delete project">🗑️</button>` : ''}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Delete a project
+        function deleteProject(projectId) {
+            if (confirm('Delete this project? This cannot be undone.')) {
+                let projects = getAllProjects();
+                projects = projects.filter(p => p.id !== projectId);
+                saveAllProjects(projects);
+                
+                // If we deleted the current project, load the default one
+                if (currentProject.id === projectId) {
+                    loadProject('default');
+                }
+                
+                updateProjectList();
+            }
+        }
+
+        // Format date for display
+        function formatDate(isoString) {
+            const date = new Date(isoString);
+            const now = new Date();
+            const diff = now - date;
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            
+            if (days === 0) return 'Today';
+            if (days === 1) return 'Yesterday';
+            if (days < 7) return `${days} days ago`;
+            return date.toLocaleDateString();
+        }
+
+        // ============================================
+        // EDITOR FUNCTIONALITY
+        // ============================================
+        
+        // Set initial code in editors
+        document.getElementById('html-editor').value = currentProject.html;
+        document.getElementById('css-editor').value = currentProject.css;
+        document.getElementById('js-editor').value = currentProject.js;
+
+        // Current tab tracking
+        let currentTab = 'html';
+
+        // ============================================
+        // MENU FUNCTIONS
+        // ============================================
+        
+        function toggleMenu() {
+            const menu = document.getElementById('hamburgerMenu');
+            const overlay = document.getElementById('menuOverlay');
+            menu.classList.toggle('open');
+            overlay.classList.toggle('show');
+            updateProjectList();
+        }
+
+        function closeMenu() {
+            const menu = document.getElementById('hamburgerMenu');
+            const overlay = document.getElementById('menuOverlay');
+            menu.classList.remove('open');
+            overlay.classList.remove('show');
+        }
+
+        function createNewProject() {
+            document.getElementById('newProjectModal').classList.add('show');
+            document.getElementById('projectName').value = '';
+            document.getElementById('projectName').focus();
+        }
+
+        function closeNewProjectModal() {
+            document.getElementById('newProjectModal').classList.remove('show');
+        }
+
+        function confirmNewProject() {
+            const name = document.getElementById('projectName').value.trim();
+            const template = document.getElementById('projectTemplate').value;
+            
+            if (!name) {
+                alert('Please enter a project name!');
+                return;
+            }
+            
+            // Generate unique ID
+            const id = 'project-' + Date.now();
+            
+            // Get template code
+            let html, css, js;
+            if (template === 'blank') {
+                html = blankHTML;
+                css = blankCSS;
+                js = blankJS;
+            } else if (template === 'simple-page') {
+                html = simpleHTML;
+                css = simpleCSS;
+                js = simpleJS;
+            } else {
+                html = initialHTML;
+                css = initialCSS;
+                js = initialJS;
+            }
+            
+            // Create new project
+            currentProject = {
+                id: id,
+                name: name,
+                html: html,
+                css: css,
+                js: js,
+                lastModified: new Date().toISOString()
+            };
+            
+            // Save it
+            saveCurrentProject();
+            
+            // Load it
+            document.getElementById('html-editor').value = html;
+            document.getElementById('css-editor').value = css;
+            document.getElementById('js-editor').value = js;
+            document.getElementById('project-title').textContent = name;
+            
+            // Close modal and menu
+            closeNewProjectModal();
+            closeMenu();
+            
+            // Run the code
+            runCode();
+        }
+
+        function importProject() {
+            closeMenu();
+            importCode();
+        }
+
+        // ============================================
+        // SYNTAX CHECKING (No APIs, All Browser-Based!)
+        // ============================================
+        
+        // Check HTML syntax
+        function checkHTMLSyntax(code) {
+            const errors = [];
+            const warnings = [];
+            
+            // Check for unclosed tags
+            const openTags = [];
+            const selfClosingTags = ['img', 'br', 'hr', 'input', 'meta', 'link', 'area', 'base', 'col', 'embed', 'param', 'source', 'track', 'wbr'];
+            
+            // Simple tag matching (not perfect but catches common errors)
+            const tagRegex = /<\/?([a-zA-Z][a-zA-Z0-9]*)[^>]*>/g;
+            let match;
+            
+            while ((match = tagRegex.exec(code)) !== null) {
+                const fullTag = match[0];
+                const tagName = match[1].toLowerCase();
+                
+                if (fullTag.startsWith('</')) {
+                    // Closing tag
+                    if (openTags.length === 0) {
+                        errors.push(`Closing tag </${tagName}> without opening tag`);
+                    } else {
+                        const lastOpen = openTags.pop();
+                        if (lastOpen !== tagName) {
+                            errors.push(`Mismatched tags: expected </${lastOpen}> but found </${tagName}>`);
+                        }
+                    }
+                } else if (!fullTag.endsWith('/>') && !selfClosingTags.includes(tagName)) {
+                    // Opening tag (not self-closing)
+                    openTags.push(tagName);
+                }
+            }
+            
+            // Check for remaining unclosed tags
+            if (openTags.length > 0) {
+                errors.push(`Unclosed tags: ${openTags.map(t => '<' + t + '>').join(', ')}`);
+            }
+            
+            // Check for common issues
+            if (code.includes('< /')) {
+                warnings.push('Space after < in closing tag');
+            }
+            if (code.includes('<>')) {
+                errors.push('Empty tag <>');
+            }
+            
+            return { errors, warnings, valid: errors.length === 0 };
+        }
+        
+        // Check CSS syntax
+        function checkCSSSyntax(code) {
+            const errors = [];
+            const warnings = [];
+            
+            try {
+                // Count braces
+                const openBraces = (code.match(/{/g) || []).length;
+                const closeBraces = (code.match(/}/g) || []).length;
+                
+                if (openBraces !== closeBraces) {
+                    errors.push(`Mismatched braces: ${openBraces} opening { vs ${closeBraces} closing }`);
+                }
+                
+                // Check for missing semicolons (common beginner mistake)
+                const lines = code.split('\n');
+                lines.forEach((line, i) => {
+                    const trimmed = line.trim();
+                    // Check if it's a property line (has : but not ending with ; or { or })
+                    if (trimmed.includes(':') && !trimmed.endsWith(';') && !trimmed.endsWith('{') && !trimmed.endsWith('}') && !trimmed.startsWith('/*') && !trimmed.startsWith('//')) {
+                        if (trimmed.length > 0 && !trimmed.includes('/*')) {
+                            warnings.push(`Line ${i + 1}: Missing semicolon?`);
+                        }
+                    }
+                });
+                
+                // Check for common typos
+                if (code.includes('colour:')) {
+                    warnings.push('British spelling detected: use "color:" not "colour:"');
+                }
+                
+                // Try to actually parse it using the browser
+                const style = document.createElement('style');
+                style.textContent = code;
+                document.head.appendChild(style);
+                
+                // Check if stylesheet loaded (basic validation)
+                if (style.sheet && style.sheet.cssRules) {
+                    // Successfully parsed
+                }
+                
+                document.head.removeChild(style);
+                
+            } catch (e) {
+                errors.push('CSS parse error: ' + e.message);
+            }
+            
+            return { errors, warnings, valid: errors.length === 0 };
+        }
+        
+        // Check JavaScript syntax
+        function checkJSSyntax(code) {
+            const errors = [];
+            const warnings = [];
+            
+            try {
+                // Use Function constructor to check syntax without executing
+                new Function(code);
+                
+                // Additional checks for common issues
+                const openParens = (code.match(/\(/g) || []).length;
+                const closeParens = (code.match(/\)/g) || []).length;
+                if (openParens !== closeParens) {
+                    warnings.push(`Mismatched parentheses: ${openParens} ( vs ${closeParens} )`);
+                }
+                
+                const openBrackets = (code.match(/\[/g) || []).length;
+                const closeBrackets = (code.match(/\]/g) || []).length;
+                if (openBrackets !== closeBrackets) {
+                    warnings.push(`Mismatched brackets: ${openBrackets} [ vs ${closeBrackets} ]`);
+                }
+                
+                const openBraces = (code.match(/{/g) || []).length;
+                const closeBraces = (code.match(/}/g) || []).length;
+                if (openBraces !== closeBraces) {
+                    warnings.push(`Mismatched braces: ${openBraces} { vs ${closeBraces} }`);
+                }
+                
+                // Check for console.log statements (not an error, just info)
+                const consoleCount = (code.match(/console\.log/g) || []).length;
+                if (consoleCount > 0) {
+                    // This is fine, just noting it
+                }
+                
+            } catch (e) {
+                // Parse the error message
+                let errorMsg = e.message;
+                const lineMatch = errorMsg.match(/line (\d+)/);
+                if (lineMatch) {
+                    errors.push(`Syntax error on line ${lineMatch[1]}: ${errorMsg}`);
+                } else {
+                    errors.push('Syntax error: ' + errorMsg);
+                }
+            }
+            
+            return { errors, warnings, valid: errors.length === 0 };
+        }
+        
+        // Update error display
+        function updateErrorDisplay(type, result) {
+            const errorDiv = document.getElementById(`${type}-error`);
+            const statusDiv = document.getElementById(`${type}-status`);
+            
+            if (result.errors.length > 0) {
+                errorDiv.textContent = '❌ ' + result.errors[0];
+                errorDiv.className = 'error-indicator show';
+                statusDiv.textContent = '✗ Syntax error';
+                statusDiv.className = 'syntax-status show error';
+            } else if (result.warnings.length > 0) {
+                errorDiv.textContent = '⚠️ ' + result.warnings[0];
+                errorDiv.className = 'error-indicator show warning';
+                statusDiv.textContent = '⚠ Warning';
+                statusDiv.className = 'syntax-status show error';
+            } else {
+                errorDiv.className = 'error-indicator';
+                statusDiv.textContent = '✓ No errors';
+                statusDiv.className = 'syntax-status show';
+                
+                // Hide success message after 2 seconds
+                setTimeout(() => {
+                    statusDiv.className = 'syntax-status';
+                }, 2000);
+            }
+        }
+        
+        // Check syntax for current editor
+        function checkCurrentSyntax() {
+            const editor = document.getElementById(`${currentTab}-editor`);
+            const code = editor.value;
+            let result;
+            
+            switch(currentTab) {
+                case 'html':
+                    result = checkHTMLSyntax(code);
+                    break;
+                case 'css':
+                    result = checkCSSSyntax(code);
+                    break;
+                case 'js':
+                    result = checkJSSyntax(code);
+                    break;
+            }
+            
+            updateErrorDisplay(currentTab, result);
+            return result.valid;
+        }
+        
+        // Debounced syntax checking
+        let syntaxCheckTimeout;
+        function scheduleSyntaxCheck() {
+            clearTimeout(syntaxCheckTimeout);
+            syntaxCheckTimeout = setTimeout(checkCurrentSyntax, 500);
+        }
+
+        // ============================================
+        // TAB SWITCHING
+        // ============================================
+        function switchTab(tab) {
+            // Save current tab state first
+            currentTab = tab;
+            
+            // Hide all editors and clear ALL error indicators
+            ['html', 'css', 'js'].forEach(t => {
+                document.getElementById(`${t}-editor`).style.display = 'none';
+                // Force hide all error displays
+                const errorDiv = document.getElementById(`${t}-error`);
+                const statusDiv = document.getElementById(`${t}-status`);
+                errorDiv.className = 'error-indicator'; // Remove 'show' class
+                errorDiv.textContent = ''; // Clear text
+                statusDiv.className = 'syntax-status'; // Remove 'show' class
+                statusDiv.textContent = ''; // Clear text
+            });
+
+            // Remove active class from all tabs
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+
+            // Show selected editor and activate tab
+            document.getElementById(tab + '-editor').style.display = 'block';
+            event.target.classList.add('active');
+            
+            // Check syntax for the new tab after a brief delay to ensure UI is updated
+            setTimeout(() => {
+                checkCurrentSyntax();
+            }, 100);
+        }
+
+        // ============================================
+        // RUN CODE (Update Preview with Safety Features)
+        // ============================================
+        function runCode() {
+            const htmlCode = document.getElementById('html-editor').value;
+            const cssCode = document.getElementById('css-editor').value;
+            const jsCode = document.getElementById('js-editor').value;
+
+            // Clear console on each run
+            clearConsole();
+
+            // Add infinite loop protection to the JavaScript code
+            const protectedJS = addLoopProtection(jsCode);
+
+            // Create complete HTML document with console interception
+            const output = `
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <style>${cssCode}</style>
+                </head>
+                <body>
+                    ${htmlCode.replace(/<!DOCTYPE html>|<html.*?>|<head>.*?<\/head>|<body>|<\/body>|<\/html>/gi, '')}
+                    <script>
+                    // Intercept console methods to show in our console panel
+                    (function() {
+                        const originalLog = console.log;
+                        const originalError = console.error;
+                        const originalWarn = console.warn;
+                        const originalInfo = console.info;
+                        
+                        function sendToParent(type, args) {
+                            const message = Array.from(args).map(arg => {
+                                if (typeof arg === 'object') {
+                                    try {
+                                        return JSON.stringify(arg, null, 2);
+                                    } catch(e) {
+                                        return String(arg);
+                                    }
+                                }
+                                return String(arg);
+                            }).join(' ');
+                            
+                            window.parent.postMessage({
+                                type: 'console',
+                                level: type,
+                                message: message
+                            }, '*');
+                        }
+                        
+                        console.log = function() {
+                            originalLog.apply(console, arguments);
+                            sendToParent('log', arguments);
+                        };
+                        
+                        console.error = function() {
+                            originalError.apply(console, arguments);
+                            sendToParent('error', arguments);
+                        };
+                        
+                        console.warn = function() {
+                            originalWarn.apply(console, arguments);
+                            sendToParent('warn', arguments);
+                        };
+                        
+                        console.info = function() {
+                            originalInfo.apply(console, arguments);
+                            sendToParent('info', arguments);
+                        };
+                    })();
+                    
+                    // Error handler to catch runtime errors
+                    window.onerror = function(msg, url, lineNo, columnNo, error) {
+                        window.parent.postMessage({
+                            type: 'console',
+                            level: 'error',
+                            message: '❌ Error on line ' + lineNo + ': ' + msg
+                        }, '*');
+                        
+                        document.body.innerHTML = '<div style="font-family: Arial; padding: 40px; max-width: 600px; margin: 0 auto;">' +
+                            '<h2 style="color: #d32f2f;">⚠️ JavaScript Error</h2>' +
+                            '<p style="color: #666; line-height: 1.6;"><strong>Error:</strong> ' + msg + '</p>' +
+                            '<p style="color: #666;"><strong>Line:</strong> ' + lineNo + '</p>' +
+                            '<p style="color: #888; font-size: 14px; margin-top: 20px;">Check the console below and your JavaScript tab for issues.<br><br>Common problems:<br>' +
+                            '• Typos in variable names<br>' +
+                            '• Missing quotes or brackets<br>' +
+                            '• Calling functions that don\\'t exist</p>' +
+                            '</div>';
+                        return true;
+                    };
+                    
+                    ${protectedJS}
+                    <\/script>
+                </body>
+                </html>
+            `;
+
+            // Update iframe with error boundary
+            try {
+                const iframe = document.getElementById('preview');
+                iframe.srcdoc = output;
+            } catch (error) {
+                addConsoleEntry('error', '❌ Error running code: ' + error.message);
+            }
+        }
+
+        // ============================================
+        // CONSOLE PANEL FUNCTIONS
+        // ============================================
+        
+        // Listen for messages from iframe (console.log outputs)
+        window.addEventListener('message', function(event) {
+            if (event.data.type === 'console') {
+                addConsoleEntry(event.data.level, event.data.message);
+            }
+        });
+
+        function addConsoleEntry(level, message) {
+            const consolePanel = document.getElementById('console');
+            const entry = document.createElement('div');
+            entry.className = 'console-entry console-' + level;
+            entry.textContent = '> ' + message;
+            consolePanel.appendChild(entry);
+            
+            // Auto-scroll to bottom
+            consolePanel.scrollTop = consolePanel.scrollHeight;
+        }
+
+        function clearConsole() {
+            const consolePanel = document.getElementById('console');
+            consolePanel.innerHTML = '<div class="console-entry console-info">Console cleared. Ready for new output!</div>';
+        }
+
+        // ============================================
+        // INFINITE LOOP PROTECTION
+        // ============================================
+        // This prevents infinite loops from crashing the browser
+        // It adds a counter to every loop and breaks if it runs too many times
+        
+        function addLoopProtection(code) {
+            // Skip protection if code doesn't have loops
+            if (!code.match(/\b(for|while)\s*\(/)) {
+                return code;
+            }
+
+            // Add loop counter at the beginning
+            let protectedCode = 'let __loopCounter = 0; const __maxLoops = 100000;\n';
+            
+            // Protect for loops: for(...) { becomes for(...) { if(++__loopCounter > __maxLoops) break;
+            protectedCode += code.replace(
+                /for\s*\([^)]*\)\s*{/g,
+                (match) => match + '\nif(++__loopCounter > __maxLoops) { alert("⚠️ Loop Protection\\n\\nYour loop ran too many times (100,000+) and was stopped to prevent the browser from crashing.\\n\\nCheck your loop conditions!"); break; }\n'
+            );
+            
+            // Protect while loops: while(...) { becomes while(...) { if(++__loopCounter > __maxLoops) break;
+            protectedCode = protectedCode.replace(
+                /while\s*\([^)]*\)\s*{/g,
+                (match) => match + '\nif(++__loopCounter > __maxLoops) { alert("⚠️ Loop Protection\\n\\nYour loop ran too many times (100,000+) and was stopped to prevent the browser from crashing.\\n\\nCheck your loop conditions!"); break; }\n'
+            );
+            
+            return protectedCode;
+        }
+
+        // ============================================
+        // AUTO-SAVE FUNCTIONALITY
+        // ============================================
+        
+        // Save code to current project
+        function saveCode() {
+            try {
+                saveCurrentProject();
+                
+                // Show save indicator
+                showSaveIndicator();
+            } catch (e) {
+                console.error('Failed to save:', e);
+            }
+        }
+
+        // Load saved code from current project (already loaded at startup)
+        function loadSavedCode() {
+            // Projects are loaded through the project system now
+            // This function kept for compatibility
+        }
+
+        // Show save indicator briefly
+        function showSaveIndicator() {
+            const indicator = document.getElementById('saveIndicator');
+            indicator.classList.add('show');
+            setTimeout(() => {
+                indicator.classList.remove('show');
+            }, 2000);
+        }
+
+        // ============================================
+        // EXPORT FUNCTIONALITY
+        // ============================================
+        
+        function exportCode() {
+            const htmlCode = document.getElementById('html-editor').value;
+            const cssCode = document.getElementById('css-editor').value;
+            const jsCode = document.getElementById('js-editor').value;
+
+            // Create a complete standalone HTML file
+            // We use special markers so we can split it back apart on import
+            const completeHTML = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${currentProject.name}</title>
+    <style>
+/* ===== ETHS-CSS-START ===== */
+${cssCode}
+/* ===== ETHS-CSS-END ===== */
+    </style>
+</head>
+<body>
+<!-- ===== ETHS-HTML-START ===== -->
+${htmlCode.replace(/<!DOCTYPE html>|<html.*?>|<head>.*?<\/head>|<body>|<\/body>|<\/html>/gi, '')}
+<!-- ===== ETHS-HTML-END ===== -->
+
+    <script>
+/* ===== ETHS-JS-START ===== */
+${jsCode}
+/* ===== ETHS-JS-END ===== */
+    <\/script>
+</body>
+</html>`;
+
+            // Create a blob and download it
+            const blob = new Blob([completeHTML], { type: 'text/html' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            // Use project name for filename
+            const filename = currentProject.name.replace(/[^a-z0-9]/gi, '-').toLowerCase() + '.html';
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            // Show confirmation
+            alert('✅ Your project has been exported!\n\nYou can now:\n• Open it in any browser\n• Share it with friends\n• Import it back later to keep editing');
+        }
+
+        // ============================================
+        // IMPORT FUNCTIONALITY
+        // ============================================
+        
+        function importCode() {
+            // Trigger the hidden file input
+            document.getElementById('fileInput').click();
+        }
+
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const content = e.target.result;
+                
+                // Try to extract HTML, CSS, and JS from the file using our markers
+                try {
+                    // Extract CSS
+                    const cssMatch = content.match(/\/\* ===== ETHS-CSS-START ===== \*\/([\s\S]*?)\/\* ===== ETHS-CSS-END ===== \*\//);
+                    const cssCode = cssMatch ? cssMatch[1].trim() : '';
+
+                    // Extract HTML
+                    const htmlMatch = content.match(/<!-- ===== ETHS-HTML-START ===== -->([\s\S]*?)<!-- ===== ETHS-HTML-END ===== -->/);
+                    let htmlCode = htmlMatch ? htmlMatch[1].trim() : '';
+
+                    // Extract JS
+                    const jsMatch = content.match(/\/\* ===== ETHS-JS-START ===== \*\/([\s\S]*?)\/\* ===== ETHS-JS-END ===== \*\//);
+                    const jsCode = jsMatch ? jsMatch[1].trim() : '';
+
+                    // Check if we found the markers - if not, this is non-spliced code
+                    if (!cssMatch && !htmlMatch && !jsMatch) {
+                        // No markers found - import entire file as HTML
+                        if (confirm('⚠️ This file was not exported from this editor.\n\nThe entire file will be imported as HTML code.\nCSS and JavaScript will be included in the HTML.\n\nContinue?')) {
+                            const projectName = file.name.replace('.html', '').replace(/-/g, ' ');
+                            const id = 'project-' + Date.now();
+                            
+                            currentProject = {
+                                id: id,
+                                name: projectName,
+                                html: content, // Entire file as HTML
+                                css: '/* CSS from imported file is embedded in HTML above */',
+                                js: '// JavaScript from imported file is embedded in HTML above',
+                                lastModified: new Date().toISOString()
+                            };
+
+                            // Update editors
+                            document.getElementById('html-editor').value = currentProject.html;
+                            document.getElementById('css-editor').value = currentProject.css;
+                            document.getElementById('js-editor').value = currentProject.js;
+                            document.getElementById('project-title').textContent = currentProject.name;
+
+                            // Save project
+                            saveCurrentProject();
+
+                            // Run the code to show it
+                            runCode();
+
+                            alert('✅ File imported successfully!\n\nEntire file imported as HTML.\nEdit the HTML tab to modify CSS and JavaScript.');
+                        }
+                        return;
+                    }
+                    
+                    // Reconstruct the original HTML format if markers were found
+                    if (htmlCode) {
+                        htmlCode = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Imported Project</title>
+</head>
+<body>
+${htmlCode}
+</body>
+</html>`;
+                    }
+
+                    // Create new project from imported file
+                    const projectName = file.name.replace('.html', '').replace(/-/g, ' ');
+                    const id = 'project-' + Date.now();
+                    
+                    currentProject = {
+                        id: id,
+                        name: projectName,
+                        html: htmlCode || blankHTML,
+                        css: cssCode || blankCSS,
+                        js: jsCode || blankJS,
+                        lastModified: new Date().toISOString()
+                    };
+
+                    // Update editors
+                    document.getElementById('html-editor').value = currentProject.html;
+                    document.getElementById('css-editor').value = currentProject.css;
+                    document.getElementById('js-editor').value = currentProject.js;
+                    document.getElementById('project-title').textContent = currentProject.name;
+
+                    // Save project
+                    saveCurrentProject();
+
+                    // Run the code to show it
+                    runCode();
+
+                    // Show success message
+                    alert('✅ File imported successfully!\n\nYour code has been saved as a new project: "' + projectName + '"');
+
+                } catch (error) {
+                    alert('❌ Error importing file.\n\n' + error.message);
+                    console.error('Import error:', error);
+                }
+            };
+
+            reader.readAsText(file);
+            
+            // Reset file input so the same file can be imported again
+            event.target.value = '';
+        }
+
+        // ============================================
+        // RESET FUNCTIONALITY
+        // ============================================
+        
+        function resetCode() {
+            if (confirm('⚠️ Reset current project to blank?\n\nThis will clear all your current code.\n\nMake sure to export your work first if you want to save it!')) {
+                // Reset to blank code
+                document.getElementById('html-editor').value = blankHTML;
+                document.getElementById('css-editor').value = blankCSS;
+                document.getElementById('js-editor').value = blankJS;
+                
+                // Save the reset project
+                saveCurrentProject();
+                
+                // Run the code
+                runCode();
+                
+                alert('✅ Code reset to blank template!');
+            }
+        }
+
+        // ============================================
+        // CLOSE INSTRUCTIONS
+        // ============================================
+        
+        function closeInstructions() {
+            document.getElementById('instructions').style.display = 'none';
+            localStorage.setItem('eths-instructions-closed', 'true');
+        }
+
+        // ============================================
+        // EMOJI SHORTCODES
+        // ============================================
+        // Type :emoji_name: to insert emoji
+        
+        const emojiMap = {
+            // Smileys & Emotion
+            'smile': '😊',
+            'grin': '😁',
+            'joy': '😂',
+            'rofl': '🤣',
+            'sob': '😭',
+            'heart_eyes': '😍',
+            'kiss': '😘',
+            'wink': '😉',
+            'thinking': '🤔',
+            'neutral': '😐',
+            'expressionless': '😑',
+            'no_mouth': '😶',
+            'smirk': '😏',
+            'unamused': '😒',
+            'roll_eyes': '🙄',
+            'grimacing': '😬',
+            'lying': '🤥',
+            'relieved': '😌',
+            'pensive': '😔',
+            'sleepy': '😪',
+            'drool': '🤤',
+            'sleeping': '😴',
+            'mask': '😷',
+            'sick': '🤒',
+            'injured': '🤕',
+            'nauseated': '🤢',
+            'vomit': '🤮',
+            'sneeze': '🤧',
+            'hot': '🥵',
+            'cold': '🥶',
+            'dizzy': '😵',
+            'explode': '🤯',
+            'cowboy': '🤠',
+            'party': '🥳',
+            'sunglasses': '😎',
+            'nerd': '🤓',
+            'monocle': '🧐',
+            'confused': '😕',
+            'worried': '😟',
+            'slight_frown': '🙁',
+            'frown': '☹️',
+            'open_mouth': '😮',
+            'hushed': '😯',
+            'astonished': '😲',
+            'flushed': '😳',
+            'pleading': '🥺',
+            'frowning': '😦',
+            'anguished': '😧',
+            'fearful': '😨',
+            'cold_sweat': '😰',
+            'disappointed': '😞',
+            'sweat': '😓',
+            'weary': '😩',
+            'tired': '😫',
+            'yawn': '🥱',
+            'triumph': '😤',
+            'rage': '😡',
+            'angry': '😠',
+            'cursing': '🤬',
+            'smiling_imp': '😈',
+            'imp': '👿',
+            'skull': '💀',
+            'skull_crossbones': '☠️',
+            
+            // Hand gestures
+            'clap': '👏',
+            'pray': '🙏',
+            'thumbsup': '👍',
+            'thumbsdown': '👎',
+            'ok_hand': '👌',
+            'punch': '👊',
+            'fist': '✊',
+            'v': '✌️',
+            'wave': '👋',
+            'point_right': '👉',
+            'point_left': '👈',
+            'point_up': '☝️',
+            'point_down': '👇',
+            'raised_hand': '✋',
+            'muscle': '💪',
+            'fire': '🔥',
+            
+            // Hearts
+            'heart': '❤️',
+            'orange_heart': '🧡',
+            'yellow_heart': '💛',
+            'green_heart': '💚',
+            'blue_heart': '💙',
+            'purple_heart': '💜',
+            'black_heart': '🖤',
+            'white_heart': '🤍',
+            'brown_heart': '🤎',
+            'broken_heart': '💔',
+            'heart_exclamation': '❣️',
+            'two_hearts': '💕',
+            'sparkling_heart': '💖',
+            'heartpulse': '💗',
+            'heartbeat': '💓',
+            'revolving_hearts': '💞',
+            'cupid': '💘',
+            
+            // Symbols
+            'star': '⭐',
+            'sparkles': '✨',
+            'boom': '💥',
+            'dizzy_symbol': '💫',
+            'sweat_drops': '💦',
+            'dash': '💨',
+            'check': '✅',
+            'x': '❌',
+            'warning': '⚠️',
+            'stop_sign': '🛑',
+            'bell': '🔔',
+            'zzz': '💤',
+            'speech_balloon': '💬',
+            'thought_balloon': '💭',
+            'eye': '👁️',
+            'brain': '🧠',
+            
+            // Activities
+            'soccer': '⚽',
+            'basketball': '🏀',
+            'football': '🏈',
+            'baseball': '⚾',
+            'tennis': '🎾',
+            'volleyball': '🏐',
+            'trophy': '🏆',
+            'medal': '🏅',
+            'art': '🎨',
+            'game': '🎮',
+            'dice': '🎲',
+            'music': '🎵',
+            'guitar': '🎸',
+            'microphone': '🎤',
+            'headphones': '🎧',
+            'book': '📖',
+            'books': '📚',
+            'notebook': '📓',
+            'pencil': '✏️',
+            'pen': '🖊️',
+            
+            // Food
+            'pizza': '🍕',
+            'burger': '🍔',
+            'fries': '🍟',
+            'hotdog': '🌭',
+            'taco': '🌮',
+            'burrito': '🌯',
+            'apple': '🍎',
+            'banana': '🍌',
+            'watermelon': '🍉',
+            'grapes': '🍇',
+            'strawberry': '🍓',
+            'cake': '🍰',
+            'cookie': '🍪',
+            'chocolate': '🍫',
+            'candy': '🍬',
+            'lollipop': '🍭',
+            'coffee': '☕',
+            'tea': '🍵',
+            
+            // Animals
+            'dog': '🐕',
+            'cat': '🐈',
+            'mouse': '🐁',
+            'rabbit': '🐇',
+            'fox': '🦊',
+            'bear': '🐻',
+            'panda': '🐼',
+            'koala': '🐨',
+            'tiger': '🐯',
+            'lion': '🦁',
+            'cow': '🐮',
+            'pig': '🐷',
+            'frog': '🐸',
+            'monkey': '🐒',
+            'chicken': '🐔',
+            'penguin': '🐧',
+            'bird': '🐦',
+            'baby_chick': '🐤',
+            'unicorn': '🦄',
+            'bee': '🐝',
+            'bug': '🐛',
+            'butterfly': '🦋',
+            'snail': '🐌',
+            'snake': '🐍',
+            'turtle': '🐢',
+            'fish': '🐟',
+            'dolphin': '🐬',
+            'whale': '🐋',
+            'shark': '🦈',
+            'octopus': '🐙',
+            
+            // Nature
+            'sun': '☀️',
+            'moon': '🌙',
+            'star2': '🌟',
+            'cloud': '☁️',
+            'rain': '🌧️',
+            'umbrella': '☂️',
+            'snowflake': '❄️',
+            'lightning': '⚡',
+            'tornado': '🌪️',
+            'rainbow': '🌈',
+            'ocean': '🌊',
+            'tree': '🌳',
+            'evergreen': '🌲',
+            'cactus': '🌵',
+            'herb': '🌿',
+            'four_leaf_clover': '🍀',
+            'rose': '🌹',
+            'tulip': '🌷',
+            'sunflower': '🌻',
+            'blossom': '🌼',
+            'earth': '🌎',
+            'globe': '🌍',
+            
+            // Travel & Places
+            'car': '🚗',
+            'taxi': '🚕',
+            'bus': '🚌',
+            'train': '🚆',
+            'airplane': '✈️',
+            'rocket': '🚀',
+            'bike': '🚲',
+            'scooter': '🛴',
+            'house': '🏠',
+            'school': '🏫',
+            'office': '🏢',
+            'hospital': '🏥',
+            'bank': '🏦',
+            'hotel': '🏨',
+            'castle': '🏰',
+            'tent': '⛺',
+            
+            // Objects
+            'phone': '📱',
+            'computer': '💻',
+            'keyboard': '⌨️',
+            'printer': '🖨️',
+            'camera': '📷',
+            'bulb': '💡',
+            'battery': '🔋',
+            'electric_plug': '🔌',
+            'mag': '🔍',
+            'lock': '🔒',
+            'unlock': '🔓',
+            'key': '🔑',
+            'hammer': '🔨',
+            'wrench': '🔧',
+            'gear': '⚙️',
+            'bomb': '💣',
+            'scissors': '✂️',
+            'paperclip': '📎',
+            'pushpin': '📌',
+            'alarm_clock': '⏰',
+            'watch': '⌚',
+            'hourglass': '⏳',
+            'calendar': '📅',
+            'moneybag': '💰',
+            'dollar': '💵',
+            'gift': '🎁',
+            'balloon': '🎈',
+            
+            // Flags (common ones)
+            'flag_us': '🇺🇸',
+            'flag_uk': '🇬🇧',
+            'flag_ca': '🇨🇦',
+            'flag_mx': '🇲🇽',
+            'flag_fr': '🇫🇷',
+            'flag_de': '🇩🇪',
+            'flag_es': '🇪🇸',
+            'flag_it': '🇮🇹',
+            'flag_jp': '🇯🇵',
+            'flag_cn': '🇨🇳',
+            'flag_kr': '🇰🇷',
+            'flag_in': '🇮🇳',
+            'flag_br': '🇧🇷',
+            
+            // Tech & Code specific
+            'computer_mouse': '🖱️',
+            'bug': '🐛',
+            'robot': '🤖',
+            'alien': '👽',
+            'space_invader': '👾',
+            'crystal_ball': '🔮',
+            'abacus': '🧮',
+            'floppy_disk': '💾',
+            'cd': '💿',
+            'dvd': '📀',
+            'vhs': '📼'
+        };
+
+        // ============================================
+        // INITIALIZATION
+        // ============================================
+        
+        // Initialize project system
+        const projects = getAllProjects();
+        const lastProject = localStorage.getItem('eths-last-project');
+        if (lastProject) {
+            const project = projects.find(p => p.id === lastProject);
+            if (project) {
+                currentProject = project;
+            }
+        }
+        
+        // Load current project into editors
+        document.getElementById('html-editor').value = currentProject.html;
+        document.getElementById('css-editor').value = currentProject.css;
+        document.getElementById('js-editor').value = currentProject.js;
+        document.getElementById('project-title').textContent = currentProject.name;
+
+        // Run code initially to show preview
+        runCode();
+        
+        // Check initial syntax
+        checkCurrentSyntax();
+        
+        // Update project list
+        updateProjectList();
+
+        // Auto-save every 3 seconds
+        setInterval(saveCode, 3000);
+
+        // Save when user types (debounced)
+        let saveTimeout;
+        document.querySelectorAll('.code-editor').forEach(editor => {
+            editor.addEventListener('input', () => {
+                clearTimeout(saveTimeout);
+                saveTimeout = setTimeout(saveCode, 1000);
+                
+                // Also schedule syntax check
+                scheduleSyntaxCheck();
+            });
+        });
+
+        // Check if instructions should be shown
+        if (localStorage.getItem('eths-instructions-closed') === 'true') {
+            document.getElementById('instructions').style.display = 'none';
+        }
+
+        // ============================================
+        // KEYBOARD SHORTCUTS
+        // ============================================
+        
+        // Ctrl+S or Cmd+S to run code
+        document.addEventListener('keydown', function(e) {
+            if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                e.preventDefault();
+                runCode();
+            }
+        });
+
+        // Tab key inserts spaces instead of changing focus
+        document.querySelectorAll('.code-editor').forEach(editor => {
+            editor.addEventListener('keydown', function(e) {
+                if (e.key === 'Tab') {
+                    e.preventDefault();
+                    const start = this.selectionStart;
+                    const end = this.selectionEnd;
+                    this.value = this.value.substring(0, start) + '    ' + this.value.substring(end);
+                    this.selectionStart = this.selectionEnd = start + 4;
+                    return;
+                }
+                
+                // Handle emoji autocomplete navigation
+                const editorType = this.id.replace('-editor', '');
+                const autocomplete = document.getElementById(`${editorType}-emoji-autocomplete`);
+                
+                if (autocomplete.classList.contains('show')) {
+                    if (e.key === 'ArrowDown') {
+                        e.preventDefault();
+                        moveEmojiSelection(editorType, 1);
+                    } else if (e.key === 'ArrowUp') {
+                        e.preventDefault();
+                        moveEmojiSelection(editorType, -1);
+                    } else if (e.key === 'Enter' || e.key === 'Tab') {
+                        e.preventDefault();
+                        selectCurrentEmoji(editorType);
+                    } else if (e.key === 'Escape') {
+                        hideEmojiAutocomplete(editorType);
+                    }
+                }
+            });
+            
+            // Check for autocomplete patterns on keyup
+            editor.addEventListener('keyup', function(e) {
+                // Check for smart autocomplete triggers
+                if (checkAutocompletePatterns(this, e.key)) {
+                    // Pattern was triggered and replaced
+                    return;
+                }
+            });
+            
+            // Emoji autocomplete on input
+            editor.addEventListener('input', function(e) {
+                const cursorPos = this.selectionStart;
+                const textBeforeCursor = this.value.substring(0, cursorPos);
+                const editorType = this.id.replace('-editor', '');
+                
+                // Check if we're typing an emoji shortcode
+                const emojiMatch = textBeforeCursor.match(/:([a-z_]*)$/);
+                
+                if (emojiMatch) {
+                    const searchTerm = emojiMatch[1];
+                    
+                    if (searchTerm.length === 0) {
+                        // Just typed ":", show all emojis (limited to first 20)
+                        showEmojiAutocomplete(editorType, '', this);
+                    } else {
+                        // Typing after ":", show filtered results
+                        showEmojiAutocomplete(editorType, searchTerm, this);
+                    }
+                } else {
+                    // Not typing emoji shortcode, hide autocomplete
+                    hideEmojiAutocomplete(editorType);
+                }
+            });
+            
+            // Hide autocomplete when clicking outside
+            editor.addEventListener('blur', function() {
+                const editorType = this.id.replace('-editor', '');
+                setTimeout(() => hideEmojiAutocomplete(editorType), 200);
+            });
+        });
+
+        // ============================================
+        // SMART AUTOCOMPLETE PATTERNS
+        // ============================================
+        
+        const autocompletePatterns = {
+            // HTML Boilerplate
+            '<!DOCTYPE html>': '<!DOCTYPE html>\n<html lang="en">\n<head>\n    <meta charset="UTF-8">\n    <meta name="viewport" content="width=device-width, initial-scale=1.0">\n    <title>Document</title>\n</head>\n<body>\n    \n</body>\n</html>',
+            
+            // HTML Tags (self-closing)
+            '<img>': '<img src="" alt="">',
+            '<input>': '<input type="text">',
+            '<link>': '<link rel="stylesheet" href="">',
+            '<meta>': '<meta name="" content="">',
+            '<br>': '<br>',
+            '<hr>': '<hr>',
+            
+            // HTML Tags (with closing)
+            '<div>': '<div>\n    \n</div>',
+            '<p>': '<p></p>',
+            '<a>': '<a href=""></a>',
+            '<button>': '<button></button>',
+            '<h1>': '<h1></h1>',
+            '<h2>': '<h2></h2>',
+            '<h3>': '<h3></h3>',
+            '<span>': '<span></span>',
+            '<ul>': '<ul>\n    <li></li>\n</ul>',
+            '<ol>': '<ol>\n    <li></li>\n</ol>',
+            '<table>': '<table>\n    <tr>\n        <td></td>\n    </tr>\n</table>',
+            '<form>': '<form action="" method="post">\n    \n</form>',
+            '<select>': '<select>\n    <option value=""></option>\n</select>',
+            '<style>': '<style>\n    \n<\/style>',
+            '<script>': '<script>\n    \n<\/script>',
+            
+            // CSS common patterns
+            '@media': '@media screen and (max-width: 768px) {\n    \n}',
+            '@keyframes': '@keyframes animationName {\n    0% { }\n    100% { }\n}',
+            '@import': '@import url("");',
+            'flexbox': 'display: flex;\njustify-content: center;\nalign-items: center;',
+            'grid': 'display: grid;\ngrid-template-columns: repeat(auto-fit, minmax(200px, 1fr));\ngap: 20px;',
+            
+            // JavaScript patterns
+            'function()': 'function name() {\n    \n}',
+            'arrow': '() => {\n    \n}',
+            'const': 'const name = ',
+            'if()': 'if () {\n    \n}',
+            'for()': 'for (let i = 0; i < length; i++) {\n    \n}',
+            'foreach': 'array.forEach(item => {\n    \n});',
+            'class': 'class ClassName {\n    constructor() {\n        \n    }\n}',
+            'addEventListener': 'addEventListener("click", function(e) {\n    \n});',
+            'fetch': 'fetch(url)\n    .then(response => response.json())\n    .then(data => {\n        \n    })\n    .catch(error => console.error(error));',
+            'async': 'async function name() {\n    try {\n        \n    } catch (error) {\n        console.error(error);\n    }\n}',
+            'tryCatch': 'try {\n    \n} catch (error) {\n    console.error(error);\n}',
+        };
+        
+        // Check if pattern should trigger (on specific keys)
+        function checkAutocompletePatterns(editor, key) {
+            // Only check on closing characters
+            if (!['>', ')', '}', '\n', ' '].includes(key)) {
+                return false;
+            }
+            
+            const cursorPos = editor.selectionStart;
+            const textBeforeCursor = editor.value.substring(0, cursorPos);
+            
+            // Check each pattern
+            for (const [trigger, completion] of Object.entries(autocompletePatterns)) {
+                if (textBeforeCursor.endsWith(trigger)) {
+                    // Found a match! Replace with completion
+                    const beforeTrigger = textBeforeCursor.slice(0, -trigger.length);
+                    const afterCursor = editor.value.substring(cursorPos);
+                    
+                    editor.value = beforeTrigger + completion + afterCursor;
+                    
+                    // Position cursor intelligently
+                    let newPos;
+                    if (completion.includes('\n    \n')) {
+                        // Position inside the indented area
+                        const indentPos = beforeTrigger.length + completion.indexOf('\n    \n') + 5;
+                        newPos = indentPos;
+                    } else if (completion.includes('""')) {
+                        // Position between quotes
+                        newPos = beforeTrigger.length + completion.indexOf('""') + 1;
+                    } else if (completion.includes('()')) {
+                        // Position between parentheses
+                        newPos = beforeTrigger.length + completion.indexOf('()') + 1;
+                    } else {
+                        // Position at end
+                        newPos = beforeTrigger.length + completion.length;
+                    }
+                    
+                    editor.selectionStart = editor.selectionEnd = newPos;
+                    
+                    // Trigger save
+                    clearTimeout(saveTimeout);
+                    saveTimeout = setTimeout(saveCode, 1000);
+                    scheduleSyntaxCheck();
+                    
+                    return true;
+                }
+            }
+            
+            return false;
+        }
+
+        // ============================================
+        // EMOJI AUTOCOMPLETE FUNCTIONS
+        // ============================================
+        
+        let currentEmojiIndex = 0;
+        let currentEmojiMatches = [];
+        
+        function showEmojiAutocomplete(editorType, searchTerm, editor) {
+            const autocomplete = document.getElementById(`${editorType}-emoji-autocomplete`);
+            
+            // Filter emojis based on search term
+            const matches = Object.entries(emojiMap)
+                .filter(([name, emoji]) => name.includes(searchTerm.toLowerCase()))
+                .slice(0, 10); // Show max 10 suggestions
+            
+            if (matches.length === 0) {
+                hideEmojiAutocomplete(editorType);
+                return;
+            }
+            
+            currentEmojiMatches = matches;
+            currentEmojiIndex = 0;
+            
+            // Build autocomplete HTML
+            autocomplete.innerHTML = matches.map(([name, emoji], index) => `
+                <div class="emoji-suggestion ${index === 0 ? 'selected' : ''}" data-index="${index}" onclick="insertEmoji('${editorType}', '${name}', '${emoji}')">
+                    <span class="emoji-icon">${emoji}</span>
+                    <span class="emoji-name">:${name}:</span>
+                </div>
+            `).join('');
+            
+            // Position autocomplete near cursor
+            const rect = editor.getBoundingClientRect();
+            const cursorPos = getCaretCoordinates(editor);
+            
+            autocomplete.style.left = (cursorPos.left) + 'px';
+            autocomplete.style.top = (cursorPos.top + 20) + 'px';
+            autocomplete.classList.add('show');
+        }
+        
+        function hideEmojiAutocomplete(editorType) {
+            const autocomplete = document.getElementById(`${editorType}-emoji-autocomplete`);
+            autocomplete.classList.remove('show');
+            currentEmojiMatches = [];
+            currentEmojiIndex = 0;
+        }
+        
+        function moveEmojiSelection(editorType, direction) {
+            currentEmojiIndex = Math.max(0, Math.min(currentEmojiMatches.length - 1, currentEmojiIndex + direction));
+            
+            const autocomplete = document.getElementById(`${editorType}-emoji-autocomplete`);
+            const suggestions = autocomplete.querySelectorAll('.emoji-suggestion');
+            
+            suggestions.forEach((sug, idx) => {
+                if (idx === currentEmojiIndex) {
+                    sug.classList.add('selected');
+                    sug.scrollIntoView({ block: 'nearest' });
+                } else {
+                    sug.classList.remove('selected');
+                }
+            });
+        }
+        
+        function selectCurrentEmoji(editorType) {
+            if (currentEmojiMatches.length === 0) return;
+            
+            const [name, emoji] = currentEmojiMatches[currentEmojiIndex];
+            insertEmoji(editorType, name, emoji);
+        }
+        
+        function insertEmoji(editorType, name, emoji) {
+            const editor = document.getElementById(`${editorType}-editor`);
+            const cursorPos = editor.selectionStart;
+            const textBeforeCursor = editor.value.substring(0, cursorPos);
+            const textAfterCursor = editor.value.substring(cursorPos);
+            
+            // Find the start of the emoji shortcode
+            const match = textBeforeCursor.match(/:([a-z_]*)$/);
+            if (!match) return;
+            
+            const shortcodeStart = cursorPos - match[0].length;
+            
+            // Replace :shortcode with emoji
+            editor.value = editor.value.substring(0, shortcodeStart) + emoji + textAfterCursor;
+            
+            // Set cursor after emoji
+            const newPos = shortcodeStart + emoji.length;
+            editor.selectionStart = editor.selectionEnd = newPos;
+            
+            // Hide autocomplete
+            hideEmojiAutocomplete(editorType);
+            
+            // Trigger save and syntax check
+            const saveEvent = new Event('input');
+            editor.dispatchEvent(saveEvent);
+            
+            // Focus back on editor
+            editor.focus();
+        }
+        
+        // Get approximate caret position (simple version)
+        function getCaretCoordinates(element) {
+            const rect = element.getBoundingClientRect();
+            // Rough estimate - position at left side of editor
+            return {
+                left: 10,
+                top: 10
+            };
+        }
+
+        // Warn before leaving if there are unsaved changes
+        window.addEventListener('beforeunload', function(e) {
+            // Auto-save one last time
+            saveCode();
+            // Save which project was open
+            localStorage.setItem('eths-last-project', currentProject.id);
+        });
+    </script>
+</body>
+</html>
