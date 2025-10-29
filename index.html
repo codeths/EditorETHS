@@ -408,6 +408,165 @@
             opacity: 1;
         }
 
+        /* Collaboration Styles */
+        .room-code-display {
+            position: fixed;
+            top: 70px;
+            right: 20px;
+            background: #2d2d30;
+            border: 2px solid #4ec9b0;
+            border-radius: 8px;
+            padding: 12px 16px;
+            z-index: 1000;
+            display: none;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        .room-code-content {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .room-code-label {
+            color: #969696;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .room-code-text {
+            color: #4ec9b0;
+            font-size: 18px;
+            font-weight: bold;
+            letter-spacing: 2px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .copy-code-btn {
+            background: #37373d;
+            border: 1px solid #3e3e42;
+            color: #d4d4d4;
+            padding: 6px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+
+        .copy-code-btn:hover {
+            background: #4e4e52;
+            color: #fff;
+        }
+
+        .collab-panel {
+            position: fixed;
+            top: 130px;
+            right: 20px;
+            width: 250px;
+            background: #2d2d30;
+            border: 1px solid #3e3e42;
+            border-radius: 8px;
+            z-index: 999;
+            display: none;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            max-height: 400px;
+            overflow: hidden;
+        }
+
+        .collab-header {
+            background: #37373d;
+            padding: 12px 15px;
+            border-bottom: 1px solid #3e3e42;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .collab-header h3 {
+            margin: 0;
+            font-size: 14px;
+            color: #fff;
+        }
+
+        .collab-status {
+            font-size: 11px;
+            color: #4ec9b0;
+        }
+
+        .participants-list {
+            padding: 10px;
+            max-height: 340px;
+            overflow-y: auto;
+        }
+
+        .participant-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 10px;
+            margin-bottom: 5px;
+            background: #37373d;
+            border-radius: 5px;
+            border: 1px solid #3e3e42;
+        }
+
+        .participant-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .participant-name {
+            color: #d4d4d4;
+            font-size: 13px;
+            flex: 1;
+        }
+
+        .participant-you {
+            color: #4ec9b0;
+            font-size: 11px;
+            font-weight: bold;
+        }
+
+        .collab-notification {
+            position: fixed;
+            bottom: 80px;
+            right: 20px;
+            background: #2d2d30;
+            color: #d4d4d4;
+            padding: 12px 20px;
+            border-radius: 6px;
+            border: 1px solid #3e3e42;
+            font-size: 13px;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.3s;
+            z-index: 1001;
+            max-width: 300px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        .collab-notification.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .collab-notification.success {
+            border-color: #4ec9b0;
+            color: #4ec9b0;
+        }
+
+        .collab-notification.error {
+            border-color: #f48771;
+            color: #f48771;
+        }
+
+        .collab-notification.info {
+            border-color: #569cd6;
+            color: #569cd6;
+        }
+
         .container {
             display: flex;
             height: calc(100vh - 61px);
@@ -733,6 +892,9 @@
             <h1 id="project-title">🎓 ETHS Decision Tree Builder</h1>
         </div>
         <div class="header-actions">
+            <button class="header-btn" id="collab-btn" onclick="showCollabMenu()" title="Collaborate with others in real-time">
+                👥 Collaborate
+            </button>
             <button class="header-btn" onclick="importCode()" title="Import your saved HTML file">
                 📥 Import
             </button>
@@ -850,6 +1012,29 @@
     <div class="save-indicator" id="saveIndicator">
         ✓ Auto-saved
     </div>
+
+    <!-- Collaboration Room Code Display -->
+    <div id="room-code-display" class="room-code-display">
+        <div class="room-code-content">
+            <span class="room-code-label">Room Code:</span>
+            <span class="room-code-text" id="room-code-text">------</span>
+            <button class="copy-code-btn" onclick="copyRoomCode()" title="Copy room code">📋</button>
+        </div>
+    </div>
+
+    <!-- Collaboration Panel -->
+    <div id="collab-panel" class="collab-panel">
+        <div class="collab-header">
+            <h3>👥 Participants</h3>
+            <span class="collab-status" id="collab-status">Connected</span>
+        </div>
+        <div id="participants-list" class="participants-list">
+            <!-- Participants will be added here dynamically -->
+        </div>
+    </div>
+
+    <!-- Collaboration Notification -->
+    <div id="collab-notification" class="collab-notification"></div>
 
     <!-- Instructions -->
     <div class="instructions" id="instructions">
@@ -2914,6 +3099,321 @@ ${htmlCode}
             saveCode();
             // Save which project was open
             localStorage.setItem('eths-last-project', currentProject.id);
+        });
+    </script>
+
+    <!-- Socket.IO Client -->
+    <script src="/socket.io/socket.io.js"></script>
+
+    <!-- Collaboration Script -->
+    <script>
+        // ============================================
+        // COLLABORATION SYSTEM
+        // ============================================
+
+        let socket = null;
+        let currentRoom = null;
+        let currentUser = null;
+        let participants = new Map();
+        let isCollaborating = false;
+
+        // Initialize socket connection
+        function initializeSocket() {
+            if (socket) return;
+
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const host = window.location.host;
+            socket = io(window.location.origin, {
+                transports: ['websocket', 'polling']
+            });
+
+            // Socket event handlers
+            socket.on('connect', () => {
+                console.log('Connected to collaboration server');
+                updateCollaborationStatus('Connected');
+            });
+
+            socket.on('disconnect', () => {
+                console.log('Disconnected from server');
+                updateCollaborationStatus('Disconnected');
+            });
+
+            socket.on('participant-joined', (participant) => {
+                participants.set(participant.id, participant);
+                updateParticipantsList();
+                showNotification(`${participant.name} joined the session`, 'info');
+            });
+
+            socket.on('participant-left', (data) => {
+                participants.delete(data.userId);
+                updateParticipantsList();
+                showNotification(`${data.name} left the session`, 'info');
+            });
+
+            socket.on('code-update', (data) => {
+                if (!isCollaborating) return;
+
+                const editor = document.getElementById(`${data.editorType}-editor`);
+                if (editor && editor !== document.activeElement) {
+                    const cursorPos = editor.selectionStart;
+                    editor.value = data.content;
+                    editor.selectionStart = editor.selectionEnd = cursorPos;
+
+                    // Update syntax highlighting
+                    checkSyntax(data.editorType);
+                }
+            });
+
+            socket.on('cursor-update', (data) => {
+                updateRemoteCursor(data);
+            });
+
+            socket.on('project-update', (data) => {
+                if (!isCollaborating) return;
+                // Handle project structure updates
+                showNotification(`Project updated by ${participants.get(data.userId)?.name || 'someone'}`, 'info');
+            });
+
+            socket.on('new-host', (data) => {
+                if (data.hostId === socket.id) {
+                    showNotification('You are now the host', 'success');
+                }
+            });
+        }
+
+        // Create a new collaboration room
+        function createCollabRoom() {
+            const name = prompt('Enter your name:');
+            if (!name) return;
+
+            initializeSocket();
+
+            const initialState = {
+                code: document.getElementById('code-editor').value,
+                html: document.getElementById('html-editor').value,
+                css: document.getElementById('css-editor').value
+            };
+
+            socket.emit('create-room', { name, initialState }, (response) => {
+                if (response.success) {
+                    currentRoom = response.roomCode;
+                    currentUser = response.participant;
+                    isCollaborating = true;
+                    participants.set(currentUser.id, currentUser);
+
+                    showCollaborationUI();
+                    showNotification(`Room created! Code: ${response.roomCode}`, 'success');
+
+                    // Show room code prominently
+                    displayRoomCode(response.roomCode);
+                } else {
+                    showNotification('Failed to create room', 'error');
+                }
+            });
+        }
+
+        // Join an existing room
+        function joinCollabRoom() {
+            const roomCode = prompt('Enter room code:');
+            if (!roomCode) return;
+
+            const name = prompt('Enter your name:');
+            if (!name) return;
+
+            initializeSocket();
+
+            socket.emit('join-room', { roomCode: roomCode.toUpperCase(), name }, (response) => {
+                if (response.success) {
+                    currentRoom = response.roomCode;
+                    currentUser = response.participant;
+                    isCollaborating = true;
+
+                    // Load room state
+                    document.getElementById('code-editor').value = response.state.code || '';
+                    document.getElementById('html-editor').value = response.state.html || '';
+                    document.getElementById('css-editor').value = response.state.css || '';
+
+                    // Update syntax highlighting
+                    checkSyntax('code');
+                    checkSyntax('html');
+                    checkSyntax('css');
+
+                    // Load participants
+                    response.participants.forEach(p => participants.set(p.id, p));
+
+                    showCollaborationUI();
+                    showNotification(`Joined room: ${response.roomCode}`, 'success');
+                    displayRoomCode(response.roomCode);
+                } else {
+                    showNotification(response.message || 'Failed to join room', 'error');
+                }
+            });
+        }
+
+        // Leave collaboration room
+        function leaveCollabRoom() {
+            if (!currentRoom) return;
+
+            if (confirm('Are you sure you want to leave the collaboration session?')) {
+                socket.emit('leave-room', currentRoom);
+                isCollaborating = false;
+                currentRoom = null;
+                currentUser = null;
+                participants.clear();
+                hideCollaborationUI();
+                showNotification('Left collaboration session', 'info');
+            }
+        }
+
+        // Handle code changes in editors
+        function handleCollabCodeChange(editorType) {
+            if (!isCollaborating || !socket) return;
+
+            const editor = document.getElementById(`${editorType}-editor`);
+            const content = editor.value;
+            const cursorPosition = editor.selectionStart;
+
+            socket.emit('code-change', {
+                roomCode: currentRoom,
+                editorType,
+                content,
+                cursorPosition
+            });
+        }
+
+        // Handle cursor movement
+        function handleCursorMove(editorType, position) {
+            if (!isCollaborating || !socket) return;
+
+            socket.emit('cursor-move', {
+                roomCode: currentRoom,
+                editorType,
+                position
+            });
+        }
+
+        // Display room code prominently
+        function displayRoomCode(code) {
+            const codeDisplay = document.getElementById('room-code-display');
+            const codeText = document.getElementById('room-code-text');
+            codeText.textContent = code;
+            codeDisplay.style.display = 'block';
+        }
+
+        // Show collaboration UI
+        function showCollaborationUI() {
+            document.getElementById('collab-panel').style.display = 'block';
+            document.getElementById('collab-btn').innerHTML = '🔴 Leave';
+            document.getElementById('collab-btn').onclick = leaveCollabRoom;
+            updateParticipantsList();
+
+            // Attach event listeners to editors
+            ['code', 'html', 'css'].forEach(type => {
+                const editor = document.getElementById(`${type}-editor`);
+                editor.addEventListener('input', () => handleCollabCodeChange(type));
+                editor.addEventListener('click', (e) => handleCursorMove(type, e.target.selectionStart));
+                editor.addEventListener('keyup', (e) => handleCursorMove(type, e.target.selectionStart));
+            });
+        }
+
+        // Hide collaboration UI
+        function hideCollaborationUI() {
+            document.getElementById('collab-panel').style.display = 'none';
+            document.getElementById('room-code-display').style.display = 'none';
+            document.getElementById('collab-btn').innerHTML = '👥 Collaborate';
+            document.getElementById('collab-btn').onclick = showCollabMenu;
+        }
+
+        // Update participants list
+        function updateParticipantsList() {
+            const list = document.getElementById('participants-list');
+            list.innerHTML = '';
+
+            participants.forEach(participant => {
+                const item = document.createElement('div');
+                item.className = 'participant-item';
+                item.innerHTML = `
+                    <div class="participant-indicator" style="background: ${participant.color}"></div>
+                    <span class="participant-name">${participant.name}</span>
+                    ${participant.id === currentUser?.id ? '<span class="participant-you">(You)</span>' : ''}
+                `;
+                list.appendChild(item);
+            });
+        }
+
+        // Update remote cursor display
+        function updateRemoteCursor(data) {
+            // This is a simplified version - full implementation would show cursor positions
+            const participant = participants.get(data.userId);
+            if (participant) {
+                participant.cursor = { editorType: data.editorType, position: data.position };
+            }
+        }
+
+        // Show collaboration menu
+        function showCollabMenu() {
+            const choice = confirm('Create a new room? (OK = Create, Cancel = Join)');
+            if (choice) {
+                createCollabRoom();
+            } else {
+                joinCollabRoom();
+            }
+        }
+
+        // Copy room code to clipboard
+        function copyRoomCode() {
+            const code = document.getElementById('room-code-text').textContent;
+            navigator.clipboard.writeText(code).then(() => {
+                showNotification('Room code copied to clipboard!', 'success');
+            });
+        }
+
+        // Show notification
+        function showNotification(message, type = 'info') {
+            const notification = document.getElementById('collab-notification');
+            notification.textContent = message;
+            notification.className = `collab-notification ${type} show`;
+
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 3000);
+        }
+
+        // Update collaboration status
+        function updateCollaborationStatus(status) {
+            const statusEl = document.getElementById('collab-status');
+            if (statusEl) {
+                statusEl.textContent = status;
+            }
+        }
+
+        // Initialize on page load
+        window.addEventListener('load', () => {
+            // Check if there's a room code in URL
+            const urlParams = new URLSearchParams(window.location.search);
+            const roomCode = urlParams.get('room');
+            if (roomCode) {
+                setTimeout(() => {
+                    const name = prompt('Enter your name to join the room:');
+                    if (name) {
+                        initializeSocket();
+                        socket.emit('join-room', { roomCode: roomCode.toUpperCase(), name }, (response) => {
+                            if (response.success) {
+                                currentRoom = response.roomCode;
+                                currentUser = response.participant;
+                                isCollaborating = true;
+                                document.getElementById('code-editor').value = response.state.code || '';
+                                document.getElementById('html-editor').value = response.state.html || '';
+                                document.getElementById('css-editor').value = response.state.css || '';
+                                response.participants.forEach(p => participants.set(p.id, p));
+                                showCollaborationUI();
+                                showNotification(`Joined room: ${response.roomCode}`, 'success');
+                                displayRoomCode(response.roomCode);
+                            }
+                        });
+                    }
+                }, 500);
+            }
         });
     </script>
 </body>
