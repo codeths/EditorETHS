@@ -3443,6 +3443,9 @@ ${htmlCode}
                     document.getElementById('html-editor').value = response.state.html || '';
                     document.getElementById('css-editor').value = response.state.css || '';
 
+                    // Update preview with the loaded code
+                    runCode();
+
                     // Load participants
                     response.participants.forEach(p => participants.set(p.id, p));
 
