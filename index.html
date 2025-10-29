@@ -702,13 +702,11 @@
             right: 0;
             bottom: 0;
             margin: 0;
-            padding: 20px;
+            padding: 0;
+            border: 0;
             overflow: hidden;
             pointer-events: none;
             z-index: 1;
-            white-space: pre;
-            word-wrap: normal;
-            overflow-wrap: normal;
         }
 
         .highlight-layer::-webkit-scrollbar {
@@ -719,8 +717,9 @@
             font-family: 'Consolas', 'Monaco', monospace;
             font-size: 14px;
             line-height: 1.6;
-            padding: 0;
+            padding: 20px;
             margin: 0;
+            border: 0;
             background: transparent;
             display: block;
             white-space: pre;
@@ -738,19 +737,20 @@
             height: 100%;
             padding: 20px;
             margin: 0;
+            border: 0;
             background: transparent;
             color: transparent;
             caret-color: white;
             font-family: 'Consolas', 'Monaco', monospace;
             font-size: 14px;
             line-height: 1.6;
-            border: none;
             resize: none;
             overflow: auto;
             z-index: 2;
             white-space: pre;
             word-wrap: normal;
             overflow-wrap: normal;
+            box-sizing: content-box;
         }
 
         .code-editor:focus {
