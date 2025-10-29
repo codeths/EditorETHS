@@ -458,6 +458,21 @@
             color: #fff;
         }
 
+        .close-room-code-btn {
+            background: transparent;
+            border: none;
+            color: #969696;
+            padding: 4px 8px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.2s;
+            margin-left: 8px;
+        }
+
+        .close-room-code-btn:hover {
+            color: #ff6b6b;
+        }
+
         .collab-panel {
             position: fixed;
             top: 130px;
@@ -1109,6 +1124,7 @@
             <span class="room-code-label">Room Code:</span>
             <span class="room-code-text" id="room-code-text">------</span>
             <button class="copy-code-btn" onclick="copyRoomCode()" title="Copy room code">📋</button>
+            <button class="close-room-code-btn" onclick="hideRoomCode()" title="Hide room code">✕</button>
         </div>
     </div>
 
@@ -2325,8 +2341,10 @@ ${htmlCode}
 </body>
 </html>`;
 
-            // Open new window
-            const previewWindow = window.open('', '_blank', 'width=1024,height=768,menubar=yes,toolbar=yes,location=yes,status=yes,scrollbars=yes,resizable=yes');
+            // Open new window or reuse existing one
+            if (!previewWindow || previewWindow.closed) {
+                previewWindow = window.open('', '_blank', 'width=1024,height=768,menubar=yes,toolbar=yes,location=yes,status=yes,scrollbars=yes,resizable=yes');
+            }
 
             if (previewWindow) {
                 previewWindow.document.open();
@@ -2344,6 +2362,34 @@ ${htmlCode}
                 }
             } else {
                 alert('Pop-up blocked! Please allow pop-ups for this site to use the "Open in New Window" feature.');
+            }
+        }
+
+        // Update external preview window if it's open
+        function updatePreviewWindow() {
+            if (previewWindow && !previewWindow.closed) {
+                const htmlCode = document.getElementById('html-editor').value;
+                const cssCode = document.getElementById('css-editor').value;
+                const jsCode = document.getElementById('js-editor').value;
+
+                const fullHTML = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Preview - ETHS Decision Tree</title>
+    <style>${cssCode}</style>
+</head>
+<body>
+${htmlCode}
+<script>${jsCode}<\/script>
+</body>
+</html>`;
+
+                previewWindow.document.open();
+                previewWindow.document.write(fullHTML);
+                previewWindow.document.close();
             }
         }
 
@@ -2520,6 +2566,28 @@ ${jsCode}
                             // Run the code to show it
                             runCode();
 
+                            // Broadcast to collaboration participants if in collaboration mode
+                            if (isCollaborating && socket && currentRoom) {
+                                socket.emit('code-change', {
+                                    roomCode: currentRoom,
+                                    editorType: 'html',
+                                    content: currentProject.html,
+                                    cursorPosition: 0
+                                });
+                                socket.emit('code-change', {
+                                    roomCode: currentRoom,
+                                    editorType: 'css',
+                                    content: currentProject.css,
+                                    cursorPosition: 0
+                                });
+                                socket.emit('code-change', {
+                                    roomCode: currentRoom,
+                                    editorType: 'js',
+                                    content: currentProject.js,
+                                    cursorPosition: 0
+                                });
+                            }
+
                             alert('✅ File imported successfully!\n\nEntire file imported as HTML.\nEdit the HTML tab to modify CSS and JavaScript.');
                         }
                         return;
@@ -2564,6 +2632,28 @@ ${htmlCode}
 
                     // Run the code to show it
                     runCode();
+
+                    // Broadcast to collaboration participants if in collaboration mode
+                    if (isCollaborating && socket && currentRoom) {
+                        socket.emit('code-change', {
+                            roomCode: currentRoom,
+                            editorType: 'html',
+                            content: currentProject.html,
+                            cursorPosition: 0
+                        });
+                        socket.emit('code-change', {
+                            roomCode: currentRoom,
+                            editorType: 'css',
+                            content: currentProject.css,
+                            cursorPosition: 0
+                        });
+                        socket.emit('code-change', {
+                            roomCode: currentRoom,
+                            editorType: 'js',
+                            content: currentProject.js,
+                            cursorPosition: 0
+                        });
+                    }
 
                     // Show success message
                     alert('✅ File imported successfully!\n\nYour code has been saved as a new project: "' + projectName + '"');
@@ -3302,6 +3392,7 @@ ${htmlCode}
         let isCollaborating = false;
         let isReceivingUpdate = false; // Flag to prevent update loops
         let collaborationListenersAttached = false; // Prevent duplicate listeners
+        let previewWindow = null; // Reference to external preview window
 
         // Initialize socket connection
         function initializeSocket() {
@@ -3367,6 +3458,9 @@ ${htmlCode}
 
                 // Automatically update preview with the new code
                 runCode();
+
+                // Update external preview window if open
+                updatePreviewWindow();
 
                 // Clear flag after a brief delay
                 setTimeout(() => {
@@ -3651,6 +3745,11 @@ ${htmlCode}
             navigator.clipboard.writeText(code).then(() => {
                 showNotification('Room code copied to clipboard!', 'success');
             });
+        }
+
+        // Hide room code display
+        function hideRoomCode() {
+            document.getElementById('room-code-display').style.display = 'none';
         }
 
         // Show notification
