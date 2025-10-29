@@ -688,23 +688,60 @@
             white-space: pre;
         }
 
-        .code-editor {
+        .editor-wrapper {
             flex: 1;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .highlight-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            margin: 0;
+            padding: 20px;
+            overflow: auto;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .highlight-layer code {
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 14px;
+            line-height: 1.6;
+            padding: 0;
+            background: transparent;
+        }
+
+        .code-editor {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            width: 100%;
             height: 100%;
             padding: 20px;
-            background: #1e1e1e;
-            color: #d4d4d4;
+            background: transparent;
+            color: transparent;
+            caret-color: white;
             font-family: 'Consolas', 'Monaco', monospace;
             font-size: 14px;
             line-height: 1.6;
             border: none;
             resize: none;
-            overflow-y: auto;
-            overflow-x: auto;
+            overflow: auto;
+            z-index: 2;
         }
 
         .code-editor:focus {
             outline: none;
+        }
+
+        .code-editor::selection {
+            background: rgba(38, 79, 120, 0.6);
         }
 
         /* Error indicators */
@@ -1004,6 +1041,8 @@
             }
         }
     </style>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/vs2015.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 </head>
 <body>
@@ -1102,7 +1141,10 @@
                 <div id="html-emoji-autocomplete" class="emoji-autocomplete"></div>
                 <div class="editor-with-lines" id="html-container">
                     <div class="line-numbers" id="html-line-numbers"></div>
-                    <textarea id="html-editor" class="code-editor" spellcheck="false"></textarea>
+                    <div class="editor-wrapper">
+                        <pre class="highlight-layer"><code id="html-highlight" class="language-html"></code></pre>
+                        <textarea id="html-editor" class="code-editor" spellcheck="false"></textarea>
+                    </div>
                 </div>
 
                 <div id="css-error" class="error-indicator"></div>
@@ -1110,7 +1152,10 @@
                 <div id="css-emoji-autocomplete" class="emoji-autocomplete"></div>
                 <div class="editor-with-lines" id="css-container" style="display:none;">
                     <div class="line-numbers" id="css-line-numbers"></div>
-                    <textarea id="css-editor" class="code-editor" spellcheck="false"></textarea>
+                    <div class="editor-wrapper">
+                        <pre class="highlight-layer"><code id="css-highlight" class="language-css"></code></pre>
+                        <textarea id="css-editor" class="code-editor" spellcheck="false"></textarea>
+                    </div>
                 </div>
 
                 <div id="js-error" class="error-indicator"></div>
@@ -1118,7 +1163,10 @@
                 <div id="js-emoji-autocomplete" class="emoji-autocomplete"></div>
                 <div class="editor-with-lines" id="js-container" style="display:none;">
                     <div class="line-numbers" id="js-line-numbers"></div>
-                    <textarea id="js-editor" class="code-editor" spellcheck="false"></textarea>
+                    <div class="editor-wrapper">
+                        <pre class="highlight-layer"><code id="js-highlight" class="language-javascript"></code></pre>
+                        <textarea id="js-editor" class="code-editor" spellcheck="false"></textarea>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1775,9 +1823,10 @@ document.querySelectorAll('nav a').forEach(link => {
                 document.getElementById('js-editor').value = project.js;
                 document.getElementById('project-title').textContent = project.name;
 
-                // Update line numbers for all editors
+                // Update line numbers and syntax highlighting for all editors
                 ['html', 'css', 'js'].forEach(t => {
                     updateLineNumbers(t);
+                    updateSyntaxHighlighting(t);
                 });
 
                 // Clear all error indicators when switching projects
@@ -1866,7 +1915,7 @@ document.querySelectorAll('nav a').forEach(link => {
         let currentTab = 'html';
 
         // ============================================
-        // LINE NUMBERS
+        // LINE NUMBERS AND SYNTAX HIGHLIGHTING
         // ============================================
 
         function updateLineNumbers(editorType) {
@@ -1884,27 +1933,56 @@ document.querySelectorAll('nav a').forEach(link => {
             lineNumbersDiv.textContent = lineNumbersText;
         }
 
+        function updateSyntaxHighlighting(editorType) {
+            const editor = document.getElementById(`${editorType}-editor`);
+            const highlightCode = document.getElementById(`${editorType}-highlight`);
+
+            // Get the code from the textarea
+            const code = editor.value;
+
+            // Set the code content (highlight.js will handle escaping)
+            highlightCode.textContent = code;
+
+            // Remove old highlighting classes
+            highlightCode.removeAttribute('data-highlighted');
+
+            // Apply syntax highlighting using highlight.js
+            if (window.hljs) {
+                hljs.highlightElement(highlightCode);
+            }
+        }
+
         function syncScroll(editorType) {
             const editor = document.getElementById(`${editorType}-editor`);
             const lineNumbers = document.getElementById(`${editorType}-line-numbers`);
+            const highlightLayer = editor.previousElementSibling; // The pre.highlight-layer
 
             // Calculate the scroll position
             const scrollTop = editor.scrollTop;
+            const scrollLeft = editor.scrollLeft;
 
             // Apply negative margin to shift line numbers up
             lineNumbers.style.marginTop = `-${scrollTop}px`;
+
+            // Sync highlight layer scroll
+            if (highlightLayer) {
+                highlightLayer.scrollTop = scrollTop;
+                highlightLayer.scrollLeft = scrollLeft;
+            }
         }
 
-        // Initialize line numbers for all editors
+        // Initialize line numbers and syntax highlighting for all editors
         ['html', 'css', 'js'].forEach(type => {
             const editor = document.getElementById(`${type}-editor`);
 
-            // Initial line numbers
+            // Initial setup
             updateLineNumbers(type);
+            updateSyntaxHighlighting(type);
 
-            // Update line numbers on input
+            // Update on input
             editor.addEventListener('input', () => {
                 updateLineNumbers(type);
+                updateSyntaxHighlighting(type);
             });
 
             // Sync scroll
@@ -2731,9 +2809,10 @@ ${htmlCode}
                 document.getElementById('js-editor').value = currentProject.js;
                 document.getElementById('project-title').textContent = currentProject.name;
 
-                // Update line numbers for all editors
+                // Update line numbers and syntax highlighting for all editors
                 ['html', 'css', 'js'].forEach(t => {
                     updateLineNumbers(t);
+                    updateSyntaxHighlighting(t);
                 });
 
                 // Save project
@@ -3556,8 +3635,9 @@ ${htmlCode}
                 // Update the content
                 editor.value = data.content;
 
-                // Update line numbers
+                // Update line numbers and syntax highlighting
                 updateLineNumbers(data.editorType);
+                updateSyntaxHighlighting(data.editorType);
 
                 // Restore cursor position if this editor is active
                 if (isActive && savedCursor !== null) {
