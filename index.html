@@ -981,6 +981,7 @@
             }
         }
     </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 </head>
 <body>
     <div class="header">
@@ -995,7 +996,7 @@
             <button class="header-btn" onclick="importCode()" title="Import your saved HTML file">
                 📥 Import
             </button>
-            <button class="header-btn" onclick="exportCode()" title="Download as single HTML file">
+            <button class="header-btn" onclick="exportCode()" title="Download as zip file">
                 💾 Export
             </button>
             <button class="header-btn" onclick="resetCode()" title="Reset to original starter code">
@@ -2466,20 +2467,21 @@ ${htmlCode}
             // Create base filename from project name
             const baseFilename = currentProject.name.replace(/[^a-z0-9]/gi, '-').toLowerCase();
 
-            // Download HTML file
-            const htmlBlob = new Blob([htmlCode], { type: 'text/html' });
-            downloadFile(htmlBlob, `${baseFilename}.html`);
+            // Create a new JSZip instance
+            const zip = new JSZip();
 
-            // Download CSS file
-            const cssBlob = new Blob([cssCode], { type: 'text/css' });
-            downloadFile(cssBlob, `${baseFilename}.css`);
+            // Add files to the zip
+            zip.file(`${baseFilename}.html`, htmlCode);
+            zip.file(`${baseFilename}.css`, cssCode);
+            zip.file(`${baseFilename}.js`, jsCode);
 
-            // Download JS file
-            const jsBlob = new Blob([jsCode], { type: 'text/javascript' });
-            downloadFile(jsBlob, `${baseFilename}.js`);
+            // Generate the zip file and download it
+            zip.generateAsync({ type: 'blob' }).then(function(content) {
+                downloadFile(content, `${baseFilename}.zip`);
 
-            // Show confirmation
-            alert('✅ Your project has been exported!\n\n3 files downloaded:\n• ' + baseFilename + '.html\n• ' + baseFilename + '.css\n• ' + baseFilename + '.js\n\nYou can now:\n• Share these files\n• Import them back later to keep editing');
+                // Show confirmation
+                alert('✅ Your project has been exported!\n\nZip file downloaded:\n• ' + baseFilename + '.zip\n\nContains:\n• ' + baseFilename + '.html\n• ' + baseFilename + '.css\n• ' + baseFilename + '.js\n\nYou can now:\n• Share this file\n• Extract and import the files back later to keep editing');
+            });
         }
 
         // Helper function to download a file
