@@ -981,6 +981,7 @@
             }
         }
     </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 </head>
 <body>
     <div class="header">
@@ -992,10 +993,10 @@
             <button class="header-btn" id="collab-btn" onclick="showCollabMenu()" title="Collaborate with others in real-time">
                 👥 Collaborate
             </button>
-            <button class="header-btn" onclick="importCode()" title="Import your saved HTML file">
+            <button class="header-btn" onclick="importCode()" title="Import from zip file or separate HTML/CSS/JS files">
                 📥 Import
             </button>
-            <button class="header-btn" onclick="exportCode()" title="Download as single HTML file">
+            <button class="header-btn" onclick="exportCode()" title="Download as zip file">
                 💾 Export
             </button>
             <button class="header-btn" onclick="resetCode()" title="Reset to original starter code">
@@ -1062,7 +1063,7 @@
     </div>
 
     <!-- Hidden file input for import -->
-    <input type="file" id="fileInput" accept=".html,.css,.js" multiple style="display: none;" onchange="handleFileUpload(event)">
+    <input type="file" id="fileInput" accept=".html,.css,.js,.zip" multiple style="display: none;" onchange="handleFileUpload(event)">
 
     <div class="container">
         <!-- Left Panel: Code Editor -->
@@ -2466,20 +2467,21 @@ ${htmlCode}
             // Create base filename from project name
             const baseFilename = currentProject.name.replace(/[^a-z0-9]/gi, '-').toLowerCase();
 
-            // Download HTML file
-            const htmlBlob = new Blob([htmlCode], { type: 'text/html' });
-            downloadFile(htmlBlob, `${baseFilename}.html`);
+            // Create a new JSZip instance
+            const zip = new JSZip();
 
-            // Download CSS file
-            const cssBlob = new Blob([cssCode], { type: 'text/css' });
-            downloadFile(cssBlob, `${baseFilename}.css`);
+            // Add files to the zip
+            zip.file(`${baseFilename}.html`, htmlCode);
+            zip.file(`${baseFilename}.css`, cssCode);
+            zip.file(`${baseFilename}.js`, jsCode);
 
-            // Download JS file
-            const jsBlob = new Blob([jsCode], { type: 'text/javascript' });
-            downloadFile(jsBlob, `${baseFilename}.js`);
+            // Generate the zip file and download it
+            zip.generateAsync({ type: 'blob' }).then(function(content) {
+                downloadFile(content, `${baseFilename}.zip`);
 
-            // Show confirmation
-            alert('✅ Your project has been exported!\n\n3 files downloaded:\n• ' + baseFilename + '.html\n• ' + baseFilename + '.css\n• ' + baseFilename + '.js\n\nYou can now:\n• Share these files\n• Import them back later to keep editing');
+                // Show confirmation
+                alert('✅ Your project has been exported!\n\nZip file downloaded:\n• ' + baseFilename + '.zip\n\nContains:\n• ' + baseFilename + '.html\n• ' + baseFilename + '.css\n• ' + baseFilename + '.js\n\nYou can now:\n• Share this file\n• Extract and import the files back later to keep editing');
+            });
         }
 
         // Helper function to download a file
@@ -2507,6 +2509,77 @@ ${htmlCode}
             const files = event.target.files;
             if (!files || files.length === 0) return;
 
+            // Check if there's a zip file
+            const zipFile = Array.from(files).find(file => file.name.toLowerCase().endsWith('.zip'));
+
+            if (zipFile) {
+                // Handle zip file import
+                handleZipImport(zipFile);
+            } else {
+                // Handle separate files or folder import
+                handleSeparateFilesImport(files);
+            }
+
+            // Reset file input so the same files can be imported again
+            event.target.value = '';
+        }
+
+        function handleZipImport(zipFile) {
+            const reader = new FileReader();
+
+            reader.onload = function(e) {
+                JSZip.loadAsync(e.target.result).then(function(zip) {
+                    const imported = {
+                        html: null,
+                        css: null,
+                        js: null,
+                        projectName: zipFile.name.replace('.zip', '').replace(/-/g, ' ')
+                    };
+
+                    const promises = [];
+
+                    // Process each file in the zip
+                    zip.forEach(function(relativePath, zipEntry) {
+                        if (!zipEntry.dir) {
+                            const extension = relativePath.split('.').pop().toLowerCase();
+                            const fileName = relativePath.split('/').pop();
+
+                            if (extension === 'html') {
+                                promises.push(zipEntry.async('text').then(content => {
+                                    imported.html = content;
+                                    if (!imported.projectName || imported.projectName === zipFile.name.replace('.zip', '')) {
+                                        imported.projectName = fileName.replace('.html', '').replace(/-/g, ' ');
+                                    }
+                                }));
+                            } else if (extension === 'css') {
+                                promises.push(zipEntry.async('text').then(content => {
+                                    imported.css = content;
+                                }));
+                            } else if (extension === 'js') {
+                                promises.push(zipEntry.async('text').then(content => {
+                                    imported.js = content;
+                                }));
+                            }
+                        }
+                    });
+
+                    // Wait for all files to be extracted
+                    Promise.all(promises).then(function() {
+                        createProjectFromImport(imported);
+                    }).catch(function(error) {
+                        alert('❌ Error extracting zip file.\n\n' + error.message);
+                        console.error('Zip extraction error:', error);
+                    });
+                }).catch(function(error) {
+                    alert('❌ Error reading zip file.\n\n' + error.message);
+                    console.error('Zip read error:', error);
+                });
+            };
+
+            reader.readAsArrayBuffer(zipFile);
+        }
+
+        function handleSeparateFilesImport(files) {
             // Object to store the imported code
             const imported = {
                 html: null,
@@ -2546,72 +2619,73 @@ ${htmlCode}
 
                     // Once all files are processed, create the project
                     if (filesProcessed === totalFiles) {
-                        try {
-                            const id = 'project-' + Date.now();
-
-                            currentProject = {
-                                id: id,
-                                name: imported.projectName || 'Imported Project',
-                                html: imported.html || blankHTML,
-                                css: imported.css || blankCSS,
-                                js: imported.js || blankJS,
-                                lastModified: new Date().toISOString()
-                            };
-
-                            // Update editors
-                            document.getElementById('html-editor').value = currentProject.html;
-                            document.getElementById('css-editor').value = currentProject.css;
-                            document.getElementById('js-editor').value = currentProject.js;
-                            document.getElementById('project-title').textContent = currentProject.name;
-
-                            // Save project
-                            saveCurrentProject();
-
-                            // Run the code to show it
-                            runCode();
-
-                            // Broadcast to collaboration participants if in collaboration mode
-                            if (isCollaborating && socket && currentRoom) {
-                                socket.emit('code-change', {
-                                    roomCode: currentRoom,
-                                    editorType: 'html',
-                                    content: currentProject.html,
-                                    cursorPosition: 0
-                                });
-                                socket.emit('code-change', {
-                                    roomCode: currentRoom,
-                                    editorType: 'css',
-                                    content: currentProject.css,
-                                    cursorPosition: 0
-                                });
-                                socket.emit('code-change', {
-                                    roomCode: currentRoom,
-                                    editorType: 'js',
-                                    content: currentProject.js,
-                                    cursorPosition: 0
-                                });
-                            }
-
-                            // Show success message
-                            const importedFiles = [];
-                            if (imported.html) importedFiles.push('HTML');
-                            if (imported.css) importedFiles.push('CSS');
-                            if (imported.js) importedFiles.push('JS');
-
-                            alert('✅ Files imported successfully!\n\nImported: ' + importedFiles.join(', ') + '\n\nYour code has been saved as a new project: "' + currentProject.name + '"');
-
-                        } catch (error) {
-                            alert('❌ Error importing files.\n\n' + error.message);
-                            console.error('Import error:', error);
-                        }
+                        createProjectFromImport(imported);
                     }
                 };
 
                 reader.readAsText(file);
             });
+        }
 
-            // Reset file input so the same files can be imported again
-            event.target.value = '';
+        function createProjectFromImport(imported) {
+            try {
+                const id = 'project-' + Date.now();
+
+                currentProject = {
+                    id: id,
+                    name: imported.projectName || 'Imported Project',
+                    html: imported.html || blankHTML,
+                    css: imported.css || blankCSS,
+                    js: imported.js || blankJS,
+                    lastModified: new Date().toISOString()
+                };
+
+                // Update editors
+                document.getElementById('html-editor').value = currentProject.html;
+                document.getElementById('css-editor').value = currentProject.css;
+                document.getElementById('js-editor').value = currentProject.js;
+                document.getElementById('project-title').textContent = currentProject.name;
+
+                // Save project
+                saveCurrentProject();
+
+                // Run the code to show it
+                runCode();
+
+                // Broadcast to collaboration participants if in collaboration mode
+                if (isCollaborating && socket && currentRoom) {
+                    socket.emit('code-change', {
+                        roomCode: currentRoom,
+                        editorType: 'html',
+                        content: currentProject.html,
+                        cursorPosition: 0
+                    });
+                    socket.emit('code-change', {
+                        roomCode: currentRoom,
+                        editorType: 'css',
+                        content: currentProject.css,
+                        cursorPosition: 0
+                    });
+                    socket.emit('code-change', {
+                        roomCode: currentRoom,
+                        editorType: 'js',
+                        content: currentProject.js,
+                        cursorPosition: 0
+                    });
+                }
+
+                // Show success message
+                const importedFiles = [];
+                if (imported.html) importedFiles.push('HTML');
+                if (imported.css) importedFiles.push('CSS');
+                if (imported.js) importedFiles.push('JS');
+
+                alert('✅ Files imported successfully!\n\nImported: ' + importedFiles.join(', ') + '\n\nYour code has been saved as a new project: "' + currentProject.name + '"');
+
+            } catch (error) {
+                alert('❌ Error importing files.\n\n' + error.message);
+                console.error('Import error:', error);
+            }
         }
 
         // ============================================
@@ -3691,9 +3765,10 @@ ${htmlCode}
             });
         }
 
-        // Hide room code display
+        // Hide room code display and participants
         function hideRoomCode() {
             document.getElementById('room-code-display').style.display = 'none';
+            document.getElementById('collab-panel').style.display = 'none';
         }
 
         // Show notification
