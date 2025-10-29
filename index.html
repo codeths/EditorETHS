@@ -801,6 +801,28 @@
             color: #333;
         }
 
+        .preview-controls {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .preview-btn {
+            background: #e0e0e0;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            color: #666;
+            transition: all 0.2s;
+        }
+
+        .preview-btn:hover {
+            background: #d0d0d0;
+            color: #333;
+        }
+
         .clear-console-btn {
             background: #e0e0e0;
             border: none;
@@ -813,6 +835,28 @@
 
         .clear-console-btn:hover {
             background: #d0d0d0;
+        }
+
+        /* Fullscreen mode styles */
+        .preview-panel.fullscreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            width: 100% !important;
+            height: 100% !important;
+            z-index: 10000;
+            background: white;
+        }
+
+        .preview-panel.fullscreen .preview-content {
+            height: calc(100vh - 48px);
+        }
+
+        .preview-panel.fullscreen .preview-btn.fullscreen-active {
+            background: #007acc;
+            color: white;
         }
 
         .preview-content {
@@ -1032,10 +1076,18 @@
         </div>
 
         <!-- Right Panel: Live Preview -->
-        <div class="preview-panel">
+        <div class="preview-panel" id="previewPanel">
             <div class="preview-header">
                 <span class="preview-title">Live Preview</span>
-                <button class="clear-console-btn" onclick="clearConsole()">Clear Console</button>
+                <div class="preview-controls">
+                    <button class="preview-btn" onclick="openPreviewInNewWindow()" title="Open preview in new window">
+                        🗗 New Window
+                    </button>
+                    <button class="preview-btn" onclick="toggleFullscreen()" title="Toggle fullscreen preview">
+                        ⛶ Fullscreen
+                    </button>
+                    <button class="clear-console-btn" onclick="clearConsole()">Clear Console</button>
+                </div>
             </div>
             <div class="preview-content">
                 <iframe id="preview" sandbox="allow-scripts allow-same-origin"></iframe>
@@ -2218,6 +2270,81 @@ document.querySelectorAll('nav a').forEach(link => {
         function clearConsole() {
             const consolePanel = document.getElementById('console');
             consolePanel.innerHTML = '<div class="console-entry console-info">Console cleared. Ready for new output!</div>';
+        }
+
+        // ============================================
+        // PREVIEW FULLSCREEN & NEW WINDOW
+        // ============================================
+
+        let isFullscreen = false;
+
+        function toggleFullscreen() {
+            const previewPanel = document.getElementById('previewPanel');
+            const fullscreenBtn = event.target;
+
+            isFullscreen = !isFullscreen;
+
+            if (isFullscreen) {
+                previewPanel.classList.add('fullscreen');
+                fullscreenBtn.classList.add('fullscreen-active');
+                fullscreenBtn.innerHTML = '⛶ Exit Fullscreen';
+                fullscreenBtn.title = 'Exit fullscreen preview';
+            } else {
+                previewPanel.classList.remove('fullscreen');
+                fullscreenBtn.classList.remove('fullscreen-active');
+                fullscreenBtn.innerHTML = '⛶ Fullscreen';
+                fullscreenBtn.title = 'Toggle fullscreen preview';
+            }
+        }
+
+        // Handle ESC key to exit fullscreen
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && isFullscreen) {
+                toggleFullscreen();
+            }
+        });
+
+        function openPreviewInNewWindow() {
+            const htmlCode = document.getElementById('html-editor').value;
+            const cssCode = document.getElementById('css-editor').value;
+            const jsCode = document.getElementById('js-editor').value;
+
+            // Create the complete HTML document
+            const fullHTML = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Preview - ETHS Decision Tree</title>
+    <style>${cssCode}</style>
+</head>
+<body>
+${htmlCode}
+<script>${jsCode}<\/script>
+</body>
+</html>`;
+
+            // Open new window
+            const previewWindow = window.open('', '_blank', 'width=1024,height=768,menubar=yes,toolbar=yes,location=yes,status=yes,scrollbars=yes,resizable=yes');
+
+            if (previewWindow) {
+                previewWindow.document.open();
+                previewWindow.document.write(fullHTML);
+                previewWindow.document.close();
+
+                // Show notification
+                const saveIndicator = document.getElementById('saveIndicator');
+                if (saveIndicator) {
+                    saveIndicator.textContent = '✓ Opened in new window';
+                    saveIndicator.classList.add('show');
+                    setTimeout(() => {
+                        saveIndicator.classList.remove('show');
+                    }, 2000);
+                }
+            } else {
+                alert('Pop-up blocked! Please allow pop-ups for this site to use the "Open in New Window" feature.');
+            }
         }
 
         // ============================================
