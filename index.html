@@ -614,10 +614,6 @@
             }
         }
 
-        /* Editor wrapper for cursor positioning */
-        .editor-wrapper {
-            position: relative;
-        }
 
         .container {
             display: flex;
@@ -689,90 +685,30 @@
             box-sizing: border-box;
         }
 
-        .editor-wrapper {
-            flex: 1;
-            position: relative;
-            overflow: hidden;
-            background: #1e1e1e;
-        }
-
-        .highlight-layer {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            margin: 0;
-            padding: 20px;
-            border: 0;
-            overflow: hidden;
-            pointer-events: none;
-            z-index: 1;
-            background: transparent;
-        }
-
-        .highlight-layer code {
-            display: block;
-            margin: 0;
-            padding: 0;
-            border: 0;
-            background: transparent;
-            font-family: 'Consolas', 'Monaco', monospace;
-            font-size: 14px;
-            line-height: 1.6;
-            font-weight: normal;
-            font-style: normal;
-            letter-spacing: normal;
-            word-spacing: normal;
-            text-indent: 0;
-            white-space: pre;
-            word-wrap: normal;
-            overflow-wrap: normal;
-            tab-size: 4;
-            -moz-tab-size: 4;
-        }
-
-        .code-editor,
-        .highlight-layer,
-        .highlight-layer code,
-        .highlight-layer pre {
-            font-family: 'Consolas', 'Monaco', 'Courier New', monospace !important;
-            font-size: 14px !important;
-            line-height: 22.4px !important;
-            font-weight: 400 !important;
-            letter-spacing: 0px !important;
-            word-spacing: 0px !important;
-            text-rendering: optimizeLegibility !important;
-            -webkit-font-smoothing: antialiased !important;
-            -moz-osx-font-smoothing: grayscale !important;
-        }
 
         .code-editor {
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            width: 100%;
-            height: 100%;
+            flex: 1;
             padding: 20px;
             margin: 0;
             border: 0;
-            background: transparent;
-            color: transparent;
+            outline: none;
+            background: #1e1e1e;
+            color: #d4d4d4;
             caret-color: white;
-            font-weight: normal;
-            font-style: normal;
-            text-indent: 0;
-            resize: none;
-            overflow: auto;
-            z-index: 2;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 14px;
+            line-height: 22.4px;
             white-space: pre;
-            word-wrap: normal;
-            overflow-wrap: normal;
+            overflow: auto;
+            box-sizing: border-box;
             tab-size: 4;
             -moz-tab-size: 4;
-            box-sizing: border-box;
+        }
+
+        .code-editor code {
+            display: inline;
+            font: inherit;
+            color: inherit;
         }
 
         .code-editor:focus {
@@ -1180,10 +1116,7 @@
                 <div id="html-emoji-autocomplete" class="emoji-autocomplete"></div>
                 <div class="editor-with-lines" id="html-container">
                     <div class="line-numbers" id="html-line-numbers"></div>
-                    <div class="editor-wrapper">
-                        <pre class="highlight-layer"><code id="html-highlight" class="language-html"></code></pre>
-                        <textarea id="html-editor" class="code-editor" spellcheck="false"></textarea>
-                    </div>
+                    <pre class="code-editor" id="html-editor" contenteditable="true" spellcheck="false"><code id="html-highlight" class="language-html"></code></pre>
                 </div>
 
                 <div id="css-error" class="error-indicator"></div>
@@ -1191,10 +1124,7 @@
                 <div id="css-emoji-autocomplete" class="emoji-autocomplete"></div>
                 <div class="editor-with-lines" id="css-container" style="display:none;">
                     <div class="line-numbers" id="css-line-numbers"></div>
-                    <div class="editor-wrapper">
-                        <pre class="highlight-layer"><code id="css-highlight" class="language-css"></code></pre>
-                        <textarea id="css-editor" class="code-editor" spellcheck="false"></textarea>
-                    </div>
+                    <pre class="code-editor" id="css-editor" contenteditable="true" spellcheck="false"><code id="css-highlight" class="language-css"></code></pre>
                 </div>
 
                 <div id="js-error" class="error-indicator"></div>
@@ -1202,10 +1132,7 @@
                 <div id="js-emoji-autocomplete" class="emoji-autocomplete"></div>
                 <div class="editor-with-lines" id="js-container" style="display:none;">
                     <div class="line-numbers" id="js-line-numbers"></div>
-                    <div class="editor-wrapper">
-                        <pre class="highlight-layer"><code id="js-highlight" class="language-javascript"></code></pre>
-                        <textarea id="js-editor" class="code-editor" spellcheck="false"></textarea>
-                    </div>
+                    <pre class="code-editor" id="js-editor" contenteditable="true" spellcheck="false"><code id="js-highlight" class="language-javascript"></code></pre>
                 </div>
             </div>
         </div>
@@ -1832,9 +1759,9 @@ document.querySelectorAll('nav a').forEach(link => {
 
         // Save current project
         function saveCurrentProject() {
-            currentProject.html = document.getElementById('html-editor').value;
-            currentProject.css = document.getElementById('css-editor').value;
-            currentProject.js = document.getElementById('js-editor').value;
+            currentProject.html = document.getElementById('html-editor').textContent;
+            currentProject.css = document.getElementById('css-editor').textContent;
+            currentProject.js = document.getElementById('js-editor').textContent;
             currentProject.lastModified = new Date().toISOString();
             
             const projects = getAllProjects();
@@ -1857,9 +1784,9 @@ document.querySelectorAll('nav a').forEach(link => {
 
             if (project) {
                 currentProject = project;
-                document.getElementById('html-editor').value = project.html;
-                document.getElementById('css-editor').value = project.css;
-                document.getElementById('js-editor').value = project.js;
+                document.getElementById('html-editor').textContent = project.html;
+                document.getElementById('css-editor').textContent = project.css;
+                document.getElementById('js-editor').textContent = project.js;
                 document.getElementById('project-title').textContent = project.name;
 
                 // Update line numbers and syntax highlighting for all editors
@@ -1946,9 +1873,9 @@ document.querySelectorAll('nav a').forEach(link => {
         // ============================================
         
         // Set initial code in editors
-        document.getElementById('html-editor').value = currentProject.html;
-        document.getElementById('css-editor').value = currentProject.css;
-        document.getElementById('js-editor').value = currentProject.js;
+        document.getElementById('html-editor').textContent = currentProject.html;
+        document.getElementById('css-editor').textContent = currentProject.css;
+        document.getElementById('js-editor').textContent = currentProject.js;
 
         // Current tab tracking
         let currentTab = 'html';
@@ -1961,7 +1888,7 @@ document.querySelectorAll('nav a').forEach(link => {
             const editor = document.getElementById(`${editorType}-editor`);
             const lineNumbersDiv = document.getElementById(`${editorType}-line-numbers`);
 
-            const lines = editor.value.split('\n');
+            const lines = editor.textContent.split('\n');
             const lineCount = lines.length;
 
             let lineNumbersText = '';
@@ -1976,18 +1903,18 @@ document.querySelectorAll('nav a').forEach(link => {
 
         function updateSyntaxHighlighting(editorType) {
             const editor = document.getElementById(`${editorType}-editor`);
-            const highlightCode = document.getElementById(`${editorType}-highlight`);
+            const highlightCode = editor.querySelector('code');
 
-            // Get the code from the textarea
-            const code = editor.value;
+            // Get text content (not innerHTML)
+            const code = editor.textContent;
 
-            // Set the code content (highlight.js will handle escaping)
+            // Set the code content
             highlightCode.textContent = code;
 
-            // Remove old highlighting classes
+            // Remove old highlighting
             highlightCode.removeAttribute('data-highlighted');
 
-            // Apply syntax highlighting using highlight.js
+            // Apply syntax highlighting
             if (window.hljs) {
                 hljs.highlightElement(highlightCode);
             }
@@ -1996,25 +1923,16 @@ document.querySelectorAll('nav a').forEach(link => {
         function syncScroll(editorType) {
             const editor = document.getElementById(`${editorType}-editor`);
             const lineNumbers = document.getElementById(`${editorType}-line-numbers`);
-            const highlightLayer = editor.previousElementSibling;
 
             const scrollTop = editor.scrollTop;
-            const scrollLeft = editor.scrollLeft;
 
-            // Sync line numbers
+            // Only need to sync line numbers now
             lineNumbers.style.transform = `translateY(-${scrollTop}px)`;
-
-            // CRITICAL: Update highlight layer position using negative margins instead of scroll
-            if (highlightLayer && highlightLayer.classList.contains('highlight-layer')) {
-                highlightLayer.style.marginTop = `-${scrollTop}px`;
-                highlightLayer.style.marginLeft = `-${scrollLeft}px`;
-            }
         }
 
         // Initialize line numbers and syntax highlighting for all editors
         ['html', 'css', 'js'].forEach(type => {
             const editor = document.getElementById(`${type}-editor`);
-            const highlightLayer = editor.previousElementSibling;
 
             // Initial setup
             updateLineNumbers(type);
@@ -2026,7 +1944,7 @@ document.querySelectorAll('nav a').forEach(link => {
                 updateSyntaxHighlighting(type);
             });
 
-            // Sync scroll with margin-based approach
+            // Sync scroll
             editor.addEventListener('scroll', () => {
                 syncScroll(type);
             }, { passive: true });
@@ -2103,9 +2021,9 @@ document.querySelectorAll('nav a').forEach(link => {
             saveCurrentProject();
             
             // Load it
-            document.getElementById('html-editor').value = html;
-            document.getElementById('css-editor').value = css;
-            document.getElementById('js-editor').value = js;
+            document.getElementById('html-editor').textContent = html;
+            document.getElementById('css-editor').textContent = css;
+            document.getElementById('js-editor').textContent = js;
             document.getElementById('project-title').textContent = name;
             
             // Close modal and menu
@@ -2364,9 +2282,9 @@ document.querySelectorAll('nav a').forEach(link => {
         // RUN CODE (Update Preview with Safety Features)
         // ============================================
         function runCode() {
-            const htmlCode = document.getElementById('html-editor').value;
-            const cssCode = document.getElementById('css-editor').value;
-            const jsCode = document.getElementById('js-editor').value;
+            const htmlCode = document.getElementById('html-editor').textContent;
+            const cssCode = document.getElementById('css-editor').textContent;
+            const jsCode = document.getElementById('js-editor').textContent;
 
             // Clear console on each run
             clearConsole();
@@ -2526,9 +2444,9 @@ document.querySelectorAll('nav a').forEach(link => {
         });
 
         function openPreviewInNewWindow() {
-            const htmlCode = document.getElementById('html-editor').value;
-            const cssCode = document.getElementById('css-editor').value;
-            const jsCode = document.getElementById('js-editor').value;
+            const htmlCode = document.getElementById('html-editor').textContent;
+            const cssCode = document.getElementById('css-editor').textContent;
+            const jsCode = document.getElementById('js-editor').textContent;
 
             // Create the complete HTML document
             const fullHTML = `
@@ -2573,9 +2491,9 @@ ${htmlCode}
         // Update external preview window if it's open
         function updatePreviewWindow() {
             if (previewWindow && !previewWindow.closed) {
-                const htmlCode = document.getElementById('html-editor').value;
-                const cssCode = document.getElementById('css-editor').value;
-                const jsCode = document.getElementById('js-editor').value;
+                const htmlCode = document.getElementById('html-editor').textContent;
+                const cssCode = document.getElementById('css-editor').textContent;
+                const jsCode = document.getElementById('js-editor').textContent;
 
                 const fullHTML = `
 <!DOCTYPE html>
@@ -2664,9 +2582,9 @@ ${htmlCode}
         // ============================================
         
         function exportCode() {
-            const htmlCode = document.getElementById('html-editor').value;
-            const cssCode = document.getElementById('css-editor').value;
-            const jsCode = document.getElementById('js-editor').value;
+            const htmlCode = document.getElementById('html-editor').textContent;
+            const cssCode = document.getElementById('css-editor').textContent;
+            const jsCode = document.getElementById('js-editor').textContent;
 
             // Create base filename from project name
             const baseFilename = currentProject.name.replace(/[^a-z0-9]/gi, '-').toLowerCase();
@@ -2845,9 +2763,9 @@ ${htmlCode}
                 };
 
                 // Update editors
-                document.getElementById('html-editor').value = currentProject.html;
-                document.getElementById('css-editor').value = currentProject.css;
-                document.getElementById('js-editor').value = currentProject.js;
+                document.getElementById('html-editor').textContent = currentProject.html;
+                document.getElementById('css-editor').textContent = currentProject.css;
+                document.getElementById('js-editor').textContent = currentProject.js;
                 document.getElementById('project-title').textContent = currentProject.name;
 
                 // Update line numbers and syntax highlighting for all editors
@@ -2905,9 +2823,9 @@ ${htmlCode}
         function resetCode() {
             if (confirm('⚠️ Reset current project to blank?\n\nThis will clear all your current code.\n\nMake sure to export your work first if you want to save it!')) {
                 // Reset to blank code
-                document.getElementById('html-editor').value = blankHTML;
-                document.getElementById('css-editor').value = blankCSS;
-                document.getElementById('js-editor').value = blankJS;
+                document.getElementById('html-editor').textContent = blankHTML;
+                document.getElementById('css-editor').textContent = blankCSS;
+                document.getElementById('js-editor').textContent = blankJS;
                 
                 // Save the reset project
                 saveCurrentProject();
@@ -3243,9 +3161,9 @@ ${htmlCode}
         }
         
         // Load current project into editors
-        document.getElementById('html-editor').value = currentProject.html;
-        document.getElementById('css-editor').value = currentProject.css;
-        document.getElementById('js-editor').value = currentProject.js;
+        document.getElementById('html-editor').textContent = currentProject.html;
+        document.getElementById('css-editor').textContent = currentProject.css;
+        document.getElementById('js-editor').textContent = currentProject.js;
         document.getElementById('project-title').textContent = currentProject.name;
 
         // Run code initially to show preview
@@ -3728,9 +3646,9 @@ ${htmlCode}
             initializeSocket();
 
             const initialState = {
-                js: document.getElementById('js-editor').value,
-                html: document.getElementById('html-editor').value,
-                css: document.getElementById('css-editor').value
+                js: document.getElementById('js-editor').textContent,
+                html: document.getElementById('html-editor').textContent,
+                css: document.getElementById('css-editor').textContent
             };
 
             socket.emit('create-room', { name, initialState }, (response) => {
@@ -3768,9 +3686,9 @@ ${htmlCode}
                     isCollaborating = true;
 
                     // Load room state
-                    document.getElementById('js-editor').value = response.state.js || '';
-                    document.getElementById('html-editor').value = response.state.html || '';
-                    document.getElementById('css-editor').value = response.state.css || '';
+                    document.getElementById('js-editor').textContent = response.state.js || '';
+                    document.getElementById('html-editor').textContent = response.state.html || '';
+                    document.getElementById('css-editor').textContent = response.state.css || '';
 
                     // Update preview with the loaded code
                     runCode();
@@ -4019,9 +3937,9 @@ ${htmlCode}
                                 currentRoom = response.roomCode;
                                 currentUser = response.participant;
                                 isCollaborating = true;
-                                document.getElementById('js-editor').value = response.state.js || '';
-                                document.getElementById('html-editor').value = response.state.html || '';
-                                document.getElementById('css-editor').value = response.state.css || '';
+                                document.getElementById('js-editor').textContent = response.state.js || '';
+                                document.getElementById('html-editor').textContent = response.state.html || '';
+                                document.getElementById('css-editor').textContent = response.state.css || '';
                                 response.participants.forEach(p => participants.set(p.id, p));
                                 showCollaborationUI();
                                 showNotification(`Joined room: ${response.roomCode}`, 'success');
