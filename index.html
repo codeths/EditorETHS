@@ -3103,9 +3103,28 @@ ${htmlCode}
     </script>
 
     <!-- Socket.IO Client -->
-    <script src="/socket.io/socket.io.js"></script>
+    <script src="/socket.io/socket.io.js" onerror="handleSocketIOError()"></script>
 
     <!-- Collaboration Script -->
+    <script>
+        // Handle Socket.IO loading error
+        function handleSocketIOError() {
+            console.error('Failed to load Socket.IO - Server may not be running');
+            // Show a helpful message to the user
+            setTimeout(() => {
+                const collabBtn = document.getElementById('collab-btn');
+                if (collabBtn) {
+                    collabBtn.disabled = true;
+                    collabBtn.style.opacity = '0.5';
+                    collabBtn.title = 'Server not running. Run "npm start" to enable collaboration.';
+                    collabBtn.onclick = () => {
+                        alert('⚠️ Collaboration Server Not Running\n\nTo use collaboration features:\n\n1. Open a terminal in the project folder\n2. Run: npm install\n3. Run: npm start\n4. Open http://localhost:3000 in your browser\n\nYou cannot use collaboration by opening index.html directly!');
+                    };
+                }
+            }, 1000);
+        }
+    </script>
+
     <script>
         // ============================================
         // COLLABORATION SYSTEM
@@ -3189,7 +3208,7 @@ ${htmlCode}
             initializeSocket();
 
             const initialState = {
-                code: document.getElementById('code-editor').value,
+                js: document.getElementById('js-editor').value,
                 html: document.getElementById('html-editor').value,
                 css: document.getElementById('css-editor').value
             };
@@ -3229,12 +3248,12 @@ ${htmlCode}
                     isCollaborating = true;
 
                     // Load room state
-                    document.getElementById('code-editor').value = response.state.code || '';
+                    document.getElementById('js-editor').value = response.state.js || '';
                     document.getElementById('html-editor').value = response.state.html || '';
                     document.getElementById('css-editor').value = response.state.css || '';
 
                     // Update syntax highlighting
-                    checkSyntax('code');
+                    checkSyntax('js');
                     checkSyntax('html');
                     checkSyntax('css');
 
@@ -3308,7 +3327,7 @@ ${htmlCode}
             updateParticipantsList();
 
             // Attach event listeners to editors
-            ['code', 'html', 'css'].forEach(type => {
+            ['js', 'html', 'css'].forEach(type => {
                 const editor = document.getElementById(`${type}-editor`);
                 editor.addEventListener('input', () => handleCollabCodeChange(type));
                 editor.addEventListener('click', (e) => handleCursorMove(type, e.target.selectionStart));
@@ -3402,7 +3421,7 @@ ${htmlCode}
                                 currentRoom = response.roomCode;
                                 currentUser = response.participant;
                                 isCollaborating = true;
-                                document.getElementById('code-editor').value = response.state.code || '';
+                                document.getElementById('js-editor').value = response.state.js || '';
                                 document.getElementById('html-editor').value = response.state.html || '';
                                 document.getElementById('css-editor').value = response.state.css || '';
                                 response.participants.forEach(p => participants.set(p.id, p));
