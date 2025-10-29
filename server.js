@@ -153,7 +153,10 @@ io.on('connection', (socket) => {
     const { roomCode, editorType, content, cursorPosition } = data;
     const room = rooms.get(roomCode);
 
-    if (!room) return;
+    if (!room) {
+      console.log(`Room not found: ${roomCode}`);
+      return;
+    }
 
     // Update room state
     if (editorType === 'js') {
@@ -172,7 +175,9 @@ io.on('connection', (socket) => {
       participant.cursor = { editorType, position: cursorPosition };
     }
 
-    // Broadcast to others in room
+    console.log(`Broadcasting ${editorType} change from ${participant?.name} to room ${roomCode} (${room.participants.size - 1} other users)`);
+
+    // Broadcast to others in room (everyone except sender)
     socket.to(roomCode).emit('code-update', {
       editorType,
       content,
