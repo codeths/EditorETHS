@@ -666,11 +666,69 @@
             overflow: hidden;
         }
 
-        .code-editor {
+        .editor-wrapper {
             width: 100%;
             height: 100%;
-            padding: 20px;
+            display: flex;
+            position: relative;
             background: #1e1e1e;
+        }
+
+        .line-numbers {
+            padding: 20px 0;
+            padding-right: 15px;
+            padding-left: 20px;
+            background: #1a1a1a;
+            color: #858585;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 14px;
+            line-height: 1.6;
+            text-align: right;
+            user-select: none;
+            overflow-y: auto;
+            overflow-x: hidden;
+            border-right: 1px solid #3e3e42;
+            min-width: 50px;
+        }
+
+        .line-numbers::-webkit-scrollbar {
+            display: none;
+        }
+
+        .line-numbers {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        .highlight-layer {
+            position: absolute;
+            top: 0;
+            left: 50px;
+            right: 0;
+            bottom: 0;
+            margin: 0;
+            padding: 20px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 14px;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            overflow: hidden;
+            pointer-events: none;
+            background: transparent;
+        }
+
+        .highlight-layer code {
+            padding: 0;
+            background: transparent;
+            display: block;
+        }
+
+        .code-editor {
+            flex: 1;
+            height: 100%;
+            padding: 20px;
+            background: transparent;
             color: #d4d4d4;
             font-family: 'Consolas', 'Monaco', monospace;
             font-size: 14px;
@@ -678,6 +736,9 @@
             border: none;
             resize: none;
             overflow-y: auto;
+            position: relative;
+            z-index: 1;
+            caret-color: #fff;
         }
 
         .code-editor:focus {
@@ -981,6 +1042,8 @@
             }
         }
     </style>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/vs2015.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 </head>
 <body>
@@ -1077,17 +1140,29 @@
                 <div id="html-error" class="error-indicator"></div>
                 <div id="html-status" class="syntax-status"></div>
                 <div id="html-emoji-autocomplete" class="emoji-autocomplete"></div>
-                <textarea id="html-editor" class="code-editor" spellcheck="false"></textarea>
-                
+                <div class="editor-wrapper" id="html-wrapper">
+                    <div class="line-numbers" id="html-line-numbers"></div>
+                    <pre class="highlight-layer"><code id="html-highlight" class="language-html"></code></pre>
+                    <textarea id="html-editor" class="code-editor" spellcheck="false"></textarea>
+                </div>
+
                 <div id="css-error" class="error-indicator"></div>
                 <div id="css-status" class="syntax-status"></div>
                 <div id="css-emoji-autocomplete" class="emoji-autocomplete"></div>
-                <textarea id="css-editor" class="code-editor" style="display:none;" spellcheck="false"></textarea>
-                
+                <div class="editor-wrapper" id="css-wrapper" style="display:none;">
+                    <div class="line-numbers" id="css-line-numbers"></div>
+                    <pre class="highlight-layer"><code id="css-highlight" class="language-css"></code></pre>
+                    <textarea id="css-editor" class="code-editor" spellcheck="false"></textarea>
+                </div>
+
                 <div id="js-error" class="error-indicator"></div>
                 <div id="js-status" class="syntax-status"></div>
                 <div id="js-emoji-autocomplete" class="emoji-autocomplete"></div>
-                <textarea id="js-editor" class="code-editor" style="display:none;" spellcheck="false"></textarea>
+                <div class="editor-wrapper" id="js-wrapper" style="display:none;">
+                    <div class="line-numbers" id="js-line-numbers"></div>
+                    <pre class="highlight-layer"><code id="js-highlight" class="language-javascript"></code></pre>
+                    <textarea id="js-editor" class="code-editor" spellcheck="false"></textarea>
+                </div>
             </div>
         </div>
 
@@ -1735,14 +1810,19 @@ document.querySelectorAll('nav a').forEach(link => {
         function loadProject(projectId) {
             const projects = getAllProjects();
             const project = projects.find(p => p.id === projectId);
-            
+
             if (project) {
                 currentProject = project;
                 document.getElementById('html-editor').value = project.html;
                 document.getElementById('css-editor').value = project.css;
                 document.getElementById('js-editor').value = project.js;
                 document.getElementById('project-title').textContent = project.name;
-                
+
+                // Update syntax highlighting and line numbers for all editors
+                ['html', 'css', 'js'].forEach(t => {
+                    updateEditorHighlighting(t);
+                });
+
                 // Clear all error indicators when switching projects
                 ['html', 'css', 'js'].forEach(t => {
                     const errorDiv = document.getElementById(`${t}-error`);
@@ -1752,14 +1832,14 @@ document.querySelectorAll('nav a').forEach(link => {
                     statusDiv.className = 'syntax-status';
                     statusDiv.textContent = '';
                 });
-                
+
                 runCode();
-                
+
                 // Check syntax for current tab after loading
                 setTimeout(() => {
                     checkCurrentSyntax();
                 }, 100);
-                
+
                 closeMenu();
             }
         }
@@ -1827,6 +1907,74 @@ document.querySelectorAll('nav a').forEach(link => {
 
         // Current tab tracking
         let currentTab = 'html';
+
+        // ============================================
+        // SYNTAX HIGHLIGHTING AND LINE NUMBERS
+        // ============================================
+
+        function updateLineNumbers(editorType) {
+            const editor = document.getElementById(`${editorType}-editor`);
+            const lineNumbersDiv = document.getElementById(`${editorType}-line-numbers`);
+            const lines = editor.value.split('\n');
+            const lineCount = lines.length;
+
+            let lineNumbersHTML = '';
+            for (let i = 1; i <= lineCount; i++) {
+                lineNumbersHTML += i + '\n';
+            }
+            lineNumbersDiv.textContent = lineNumbersHTML;
+        }
+
+        function updateSyntaxHighlighting(editorType) {
+            const editor = document.getElementById(`${editorType}-editor`);
+            const highlightCode = document.getElementById(`${editorType}-highlight`);
+            const code = editor.value;
+
+            // Escape HTML entities to prevent XSS
+            const escapedCode = code
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+
+            highlightCode.textContent = escapedCode;
+
+            // Apply highlight.js
+            if (window.hljs) {
+                hljs.highlightElement(highlightCode);
+            }
+        }
+
+        function syncScroll(editorType) {
+            const editor = document.getElementById(`${editorType}-editor`);
+            const lineNumbers = document.getElementById(`${editorType}-line-numbers`);
+            const highlightCode = document.getElementById(`${editorType}-highlight`);
+
+            lineNumbers.scrollTop = editor.scrollTop;
+            highlightCode.style.transform = `translateY(${-editor.scrollTop}px)`;
+        }
+
+        function updateEditorHighlighting(editorType) {
+            updateLineNumbers(editorType);
+            updateSyntaxHighlighting(editorType);
+        }
+
+        // Initialize syntax highlighting and line numbers for all editors
+        ['html', 'css', 'js'].forEach(type => {
+            const editor = document.getElementById(`${type}-editor`);
+
+            // Initial update
+            updateEditorHighlighting(type);
+
+            // Update on input
+            editor.addEventListener('input', () => {
+                updateEditorHighlighting(type);
+            });
+
+            // Sync scroll
+            editor.addEventListener('scroll', () => {
+                syncScroll(type);
+            });
+        });
 
         // ============================================
         // MENU FUNCTIONS
@@ -2130,10 +2278,10 @@ document.querySelectorAll('nav a').forEach(link => {
         function switchTab(tab) {
             // Save current tab state first
             currentTab = tab;
-            
+
             // Hide all editors and clear ALL error indicators
             ['html', 'css', 'js'].forEach(t => {
-                document.getElementById(`${t}-editor`).style.display = 'none';
+                document.getElementById(`${t}-wrapper`).style.display = 'none';
                 // Force hide all error displays
                 const errorDiv = document.getElementById(`${t}-error`);
                 const statusDiv = document.getElementById(`${t}-status`);
@@ -2147,9 +2295,12 @@ document.querySelectorAll('nav a').forEach(link => {
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
 
             // Show selected editor and activate tab
-            document.getElementById(tab + '-editor').style.display = 'block';
+            document.getElementById(tab + '-wrapper').style.display = 'flex';
             event.target.classList.add('active');
-            
+
+            // Update syntax highlighting and line numbers for the active editor
+            updateEditorHighlighting(tab);
+
             // Check syntax for the new tab after a brief delay to ensure UI is updated
             setTimeout(() => {
                 checkCurrentSyntax();
@@ -2645,6 +2796,11 @@ ${htmlCode}
                 document.getElementById('css-editor').value = currentProject.css;
                 document.getElementById('js-editor').value = currentProject.js;
                 document.getElementById('project-title').textContent = currentProject.name;
+
+                // Update syntax highlighting and line numbers for all editors
+                ['html', 'css', 'js'].forEach(t => {
+                    updateEditorHighlighting(t);
+                });
 
                 // Save project
                 saveCurrentProject();
@@ -3465,6 +3621,9 @@ ${htmlCode}
 
                 // Update the content
                 editor.value = data.content;
+
+                // Update syntax highlighting and line numbers
+                updateEditorHighlighting(data.editorType);
 
                 // Restore cursor position if this editor is active
                 if (isActive && savedCursor !== null) {
