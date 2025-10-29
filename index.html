@@ -2520,6 +2520,28 @@ ${jsCode}
                             // Run the code to show it
                             runCode();
 
+                            // Broadcast to collaboration participants if in collaboration mode
+                            if (isCollaborating && socket && currentRoom) {
+                                socket.emit('code-change', {
+                                    roomCode: currentRoom,
+                                    editorType: 'html',
+                                    content: currentProject.html,
+                                    cursorPosition: 0
+                                });
+                                socket.emit('code-change', {
+                                    roomCode: currentRoom,
+                                    editorType: 'css',
+                                    content: currentProject.css,
+                                    cursorPosition: 0
+                                });
+                                socket.emit('code-change', {
+                                    roomCode: currentRoom,
+                                    editorType: 'js',
+                                    content: currentProject.js,
+                                    cursorPosition: 0
+                                });
+                            }
+
                             alert('✅ File imported successfully!\n\nEntire file imported as HTML.\nEdit the HTML tab to modify CSS and JavaScript.');
                         }
                         return;
@@ -2564,6 +2586,28 @@ ${htmlCode}
 
                     // Run the code to show it
                     runCode();
+
+                    // Broadcast to collaboration participants if in collaboration mode
+                    if (isCollaborating && socket && currentRoom) {
+                        socket.emit('code-change', {
+                            roomCode: currentRoom,
+                            editorType: 'html',
+                            content: currentProject.html,
+                            cursorPosition: 0
+                        });
+                        socket.emit('code-change', {
+                            roomCode: currentRoom,
+                            editorType: 'css',
+                            content: currentProject.css,
+                            cursorPosition: 0
+                        });
+                        socket.emit('code-change', {
+                            roomCode: currentRoom,
+                            editorType: 'js',
+                            content: currentProject.js,
+                            cursorPosition: 0
+                        });
+                    }
 
                     // Show success message
                     alert('✅ File imported successfully!\n\nYour code has been saved as a new project: "' + projectName + '"');
