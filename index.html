@@ -703,7 +703,7 @@
             right: 0;
             bottom: 0;
             margin: 0;
-            padding: 0;
+            padding: 20px;
             border: 0;
             overflow: hidden;
             pointer-events: none;
@@ -717,11 +717,8 @@
 
         .highlight-layer code {
             display: block;
-            position: absolute;
-            top: 0;
-            left: 0;
-            padding: 20px;
             margin: 0;
+            padding: 0;
             border: 0;
             background: transparent;
             font-family: 'Consolas', 'Monaco', monospace;
@@ -737,7 +734,6 @@
             overflow-wrap: normal;
             tab-size: 4;
             -moz-tab-size: 4;
-            box-sizing: border-box;
         }
 
         .code-editor {
@@ -2003,13 +1999,10 @@ document.querySelectorAll('nav a').forEach(link => {
             // Apply negative margin to shift line numbers up
             lineNumbers.style.marginTop = `-${scrollTop}px`;
 
-            // Sync highlight layer code element using negative margins
+            // Sync highlight layer using negative padding adjustments
             if (highlightLayer && highlightLayer.classList.contains('highlight-layer')) {
-                const code = highlightLayer.querySelector('code');
-                if (code) {
-                    code.style.marginTop = `-${scrollTop}px`;
-                    code.style.marginLeft = `-${scrollLeft}px`;
-                }
+                highlightLayer.style.paddingTop = `${20 - scrollTop}px`;
+                highlightLayer.style.paddingLeft = `${20 - scrollLeft}px`;
             }
         }
 
