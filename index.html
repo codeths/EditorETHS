@@ -738,6 +738,18 @@
             -moz-tab-size: 4;
         }
 
+        .code-editor,
+        .highlight-layer code {
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.6;
+            letter-spacing: 0;
+            word-spacing: 0;
+            font-variant-ligatures: none;
+            font-feature-settings: normal;
+            text-rendering: geometricPrecision;
+        }
+
         .code-editor {
             position: absolute;
             top: 0;
@@ -752,13 +764,8 @@
             background: transparent;
             color: transparent;
             caret-color: white;
-            font-family: 'Consolas', 'Monaco', monospace;
-            font-size: 14px;
-            line-height: 1.6;
             font-weight: normal;
             font-style: normal;
-            letter-spacing: normal;
-            word-spacing: normal;
             text-indent: 0;
             resize: none;
             overflow: auto;
@@ -1997,19 +2004,23 @@ document.querySelectorAll('nav a').forEach(link => {
             const scrollTop = editor.scrollTop;
             const scrollLeft = editor.scrollLeft;
 
-            // Sync line numbers using transform for better performance
+            // Sync line numbers
             lineNumbers.style.transform = `translateY(-${scrollTop}px)`;
 
-            // Sync highlight layer by directly copying scroll position
+            // CRITICAL FIX: Force immediate sync before browser paint
             if (highlightLayer && highlightLayer.classList.contains('highlight-layer')) {
-                highlightLayer.scrollTop = scrollTop;
-                highlightLayer.scrollLeft = scrollLeft;
+                // Use requestAnimationFrame to ensure sync happens at the right time
+                requestAnimationFrame(() => {
+                    highlightLayer.scrollTop = scrollTop;
+                    highlightLayer.scrollLeft = scrollLeft;
+                });
             }
         }
 
         // Initialize line numbers and syntax highlighting for all editors
         ['html', 'css', 'js'].forEach(type => {
             const editor = document.getElementById(`${type}-editor`);
+            const highlightLayer = editor.previousElementSibling;
 
             // Initial setup
             updateLineNumbers(type);
@@ -2021,10 +2032,17 @@ document.querySelectorAll('nav a').forEach(link => {
                 updateSyntaxHighlighting(type);
             });
 
-            // Sync scroll
+            // IMPROVED SCROLL SYNC - immediate sync for perfect alignment
             editor.addEventListener('scroll', () => {
-                syncScroll(type);
-            });
+                // Immediately sync highlight layer
+                if (highlightLayer && highlightLayer.classList.contains('highlight-layer')) {
+                    highlightLayer.scrollTop = editor.scrollTop;
+                    highlightLayer.scrollLeft = editor.scrollLeft;
+                }
+                // Then update line numbers
+                const lineNumbers = document.getElementById(`${type}-line-numbers`);
+                lineNumbers.style.transform = `translateY(-${editor.scrollTop}px)`;
+            }, { passive: true });
         });
 
         // ============================================
