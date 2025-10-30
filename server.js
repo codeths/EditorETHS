@@ -17,7 +17,9 @@ const io = socketIO(server, {
 // Middleware
 app.use(cors());
 app.use(express.json());
-app.use(express.static(__dirname));
+
+// Serve static files from Vue build
+app.use(express.static(path.join(__dirname, 'client', 'dist')));
 
 // Store active rooms and their state
 const rooms = new Map();
@@ -295,9 +297,13 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', rooms: rooms.size });
 });
 
-// Serve the main page
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'index.html'));
+// Serve the main page - all routes should serve the Vue app
+app.get('*', (req, res) => {
+  // Skip API routes
+  if (req.path.startsWith('/api') || req.path.startsWith('/socket.io')) {
+    return;
+  }
+  res.sendFile(path.join(__dirname, 'client', 'dist', 'index.html'));
 });
 
 const PORT = process.env.PORT || 3000;
