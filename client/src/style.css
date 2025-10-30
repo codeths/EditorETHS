@@ -1,0 +1,13 @@
+@import "tailwindcss";
+
+/* Override DaisyUI to remove default padding/margins on body */
+body {
+  margin: 0;
+  padding: 0;
+}
+
+#app {
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+}
