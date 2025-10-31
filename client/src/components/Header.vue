@@ -223,13 +223,25 @@ async function handleZipImport(zipFile) {
 
       const content = await file.async('string')
       const lower = filename.toLowerCase()
+      const basename = filename.split('/').pop().toLowerCase()
 
-      if (lower.includes('index') && lower.endsWith('.html')) {
-        imported.html = content
-      } else if (lower.endsWith('.css')) {
-        imported.css = content
-      } else if (lower.endsWith('.js')) {
-        imported.js = content
+      // Match any .html file (prioritize index.html)
+      if (lower.endsWith('.html')) {
+        if (basename.includes('index') || !imported.html) {
+          imported.html = content
+        }
+      }
+      // Match any .css file (prioritize style.css)
+      else if (lower.endsWith('.css')) {
+        if (basename.includes('style') || !imported.css) {
+          imported.css = content
+        }
+      }
+      // Match any .js file (prioritize script.js or main.js)
+      else if (lower.endsWith('.js')) {
+        if (basename.includes('script') || basename.includes('main') || !imported.js) {
+          imported.js = content
+        }
       }
     }
 
@@ -264,14 +276,32 @@ async function handleSeparateFilesImport(files) {
 }
 
 function applyImport(imported) {
-  editorStore.setCode('html', imported.html)
-  editorStore.setCode('css', imported.css)
-  editorStore.setCode('js', imported.js)
+  // Set code for each editor
+  if (imported.html) {
+    editorStore.setCode('html', imported.html)
+  }
+  if (imported.css) {
+    editorStore.setCode('css', imported.css)
+  }
+  if (imported.js) {
+    editorStore.setCode('js', imported.js)
+  }
 
+  // Reset project info
   projectStore.currentProjectId = null
   projectStore.currentProjectName = 'Imported Project'
 
-  uiStore.showNotification('Project imported!', 'success')
+  // Show success message with details
+  const filesImported = []
+  if (imported.html) filesImported.push('HTML')
+  if (imported.css) filesImported.push('CSS')
+  if (imported.js) filesImported.push('JS')
+
+  const message = filesImported.length > 0
+    ? `Imported: ${filesImported.join(', ')}`
+    : 'No files found to import'
+
+  uiStore.showNotification(message, filesImported.length > 0 ? 'success' : 'warning')
 }
 
 function openCollabMenu() {
