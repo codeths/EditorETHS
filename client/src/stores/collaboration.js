@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { io } from 'socket.io-client'
+import { useEditorStore } from './editor'
 
 export const useCollaborationStore = defineStore('collaboration', () => {
   // State
@@ -46,7 +47,15 @@ export const useCollaborationStore = defineStore('collaboration', () => {
     })
 
     socket.value.on('code-update', (data) => {
-      // Will be handled by editor store
+      if (!inCollabSession.value) return
+
+      console.log('Received code update:', data.editorType, 'from user:', data.userId)
+
+      // Update the editor store with the received code
+      const editorStore = useEditorStore()
+      editorStore.setCode(data.editorType, data.content)
+
+      // The Preview.vue watcher will automatically trigger runCode() after 1 second
     })
 
     socket.value.on('cursor-update', (data) => {
@@ -93,6 +102,15 @@ export const useCollaborationStore = defineStore('collaboration', () => {
           isHost.value = false
           showRoomCodeDisplay.value = true
           showParticipantsPanel.value = true
+
+          // Load room state (current code)
+          if (response.state) {
+            const editorStore = useEditorStore()
+            editorStore.setCode('html', response.state.html || '')
+            editorStore.setCode('css', response.state.css || '')
+            editorStore.setCode('js', response.state.js || '')
+            // The Preview.vue watcher will automatically trigger runCode()
+          }
         } else {
           resolve({ success: false, error: response.message })
         }

@@ -279,12 +279,24 @@ function applyImport(imported) {
   // Set code for each editor
   if (imported.html) {
     editorStore.setCode('html', imported.html)
+    // Emit to collaboration if in session
+    if (collabStore.inCollabSession) {
+      collabStore.emitCodeChange('html', imported.html)
+    }
   }
   if (imported.css) {
     editorStore.setCode('css', imported.css)
+    // Emit to collaboration if in session
+    if (collabStore.inCollabSession) {
+      collabStore.emitCodeChange('css', imported.css)
+    }
   }
   if (imported.js) {
     editorStore.setCode('js', imported.js)
+    // Emit to collaboration if in session
+    if (collabStore.inCollabSession) {
+      collabStore.emitCodeChange('js', imported.js)
+    }
   }
 
   // Reset project info
