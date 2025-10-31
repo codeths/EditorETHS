@@ -297,9 +297,10 @@ function getCursorStyle(cursor) {
   const charWidth = 8.4
   const lineHeight = 14 * 1.6
   const padding = 20 // 5 * 4 (5 = p-5)
+  const cursorOffset = 5 // Adjust for cursor height alignment
 
   const left = padding + (column * charWidth)
-  const top = padding + (lineNumber * lineHeight)
+  const top = padding + (lineNumber * lineHeight) + cursorOffset
 
   return {
     left: `${left}px`,
