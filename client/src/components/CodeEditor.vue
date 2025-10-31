@@ -15,17 +15,44 @@
       </button>
     </div>
 
-    <!-- Editor Area -->
-    <div class="flex-1 overflow-hidden bg-base-100">
-      <textarea
-        ref="editorTextarea"
-        v-model="currentCode"
-        @input="handleCodeChange"
-        @keydown="handleKeyDown"
-        class="w-full h-full p-4 bg-base-100 text-base-content font-mono text-sm resize-none focus:outline-none"
-        :placeholder="`Enter ${activeTab.toUpperCase()} code here...`"
-        spellcheck="false"
-      ></textarea>
+    <!-- Editor Area with 2-Layer System -->
+    <div class="flex-1 overflow-hidden bg-[#1e1e1e] flex">
+      <!-- Line Numbers -->
+      <div
+        ref="lineNumbers"
+        class="line-numbers bg-[#1e1e1e] text-[#858585] font-mono text-sm leading-[1.6] text-right select-none overflow-hidden border-r border-[#3e3e42] whitespace-pre px-3 py-5"
+        style="min-width: 50px;"
+      >
+        <div v-for="lineNum in totalLines" :key="lineNum">{{ lineNum }}</div>
+      </div>
+
+      <!-- Editor Wrapper -->
+      <div class="flex-1 relative overflow-hidden bg-[#1e1e1e]">
+        <!-- Highlight Layer (Bottom) -->
+        <pre
+          ref="highlightLayer"
+          class="absolute inset-0 m-0 p-5 border-0 overflow-hidden pointer-events-none z-[1] bg-transparent"
+          style="scrollbar-width: none; -ms-overflow-style: none;"
+        ><code
+          ref="highlightCode"
+          :class="`language-${getLanguageClass()}`"
+          class="block m-0 p-0 border-0 bg-transparent font-mono text-sm leading-[1.6] whitespace-pre"
+          v-html="highlightedCode"
+        ></code></pre>
+
+        <!-- Textarea (Top) -->
+        <textarea
+          ref="editorTextarea"
+          v-model="currentCode"
+          @input="handleCodeChange"
+          @scroll="handleScroll"
+          @keydown="handleKeyDown"
+          class="absolute inset-0 w-full h-full p-5 m-0 border-0 bg-transparent resize-none overflow-auto z-[2] whitespace-pre focus:outline-none"
+          style="color: transparent; caret-color: white; font-family: 'Consolas', 'Monaco', monospace; font-size: 14px; line-height: 1.6; tab-size: 4; -moz-tab-size: 4;"
+          :placeholder="`Enter ${activeTab.toUpperCase()} code here...`"
+          spellcheck="false"
+        ></textarea>
+      </div>
     </div>
 
     <!-- Console -->
@@ -65,15 +92,31 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useEditorStore } from '../stores/editor'
 import { useCollaborationStore } from '../stores/collaboration'
+import hljs from 'highlight.js/lib/core'
+import javascript from 'highlight.js/lib/languages/javascript'
+import css from 'highlight.js/lib/languages/css'
+import xml from 'highlight.js/lib/languages/xml'
+import 'highlight.js/styles/vs2015.css'
+
+// Register languages
+hljs.registerLanguage('javascript', javascript)
+hljs.registerLanguage('css', css)
+hljs.registerLanguage('xml', xml)
+hljs.registerLanguage('html', xml)
 
 const editorStore = useEditorStore()
 const collabStore = useCollaborationStore()
 
 const editorTextarea = ref(null)
+const highlightLayer = ref(null)
+const highlightCode = ref(null)
+const lineNumbers = ref(null)
 const syntaxCheckTimer = ref(null)
+const highlightedCode = ref('')
+const totalLines = ref(1)
 
 const tabs = [
   { id: 'html', label: 'HTML' },
@@ -99,11 +142,58 @@ const currentCode = computed({
   }
 })
 
+function getLanguageClass() {
+  if (activeTab.value === 'js') return 'javascript'
+  if (activeTab.value === 'html') return 'xml'
+  return activeTab.value
+}
+
+function updateHighlighting() {
+  const code = currentCode.value || ''
+
+  // Update line numbers
+  const lines = code.split('\n')
+  totalLines.value = Math.max(lines.length, 1)
+
+  // Apply syntax highlighting
+  try {
+    const language = getLanguageClass()
+    const highlighted = hljs.highlight(code, { language }).value
+    highlightedCode.value = highlighted
+  } catch (error) {
+    // If highlighting fails, just show the plain code
+    highlightedCode.value = escapeHtml(code)
+  }
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div')
+  div.textContent = text
+  return div.innerHTML
+}
+
+function handleScroll(event) {
+  // Sync scroll between textarea and highlight layer
+  if (highlightLayer.value) {
+    highlightLayer.value.scrollTop = event.target.scrollTop
+    highlightLayer.value.scrollLeft = event.target.scrollLeft
+  }
+  if (lineNumbers.value) {
+    lineNumbers.value.scrollTop = event.target.scrollTop
+  }
+}
+
 function switchTab(tab) {
   editorStore.switchTab(tab)
+  nextTick(() => {
+    updateHighlighting()
+  })
 }
 
 function handleCodeChange() {
+  // Update syntax highlighting
+  updateHighlighting()
+
   // Emit code change to collaboration if in session
   if (collabStore.inCollabSession) {
     collabStore.emitCodeChange(activeTab.value, currentCode.value)
@@ -232,8 +322,15 @@ function handleKeyDown(event) {
   }
 }
 
+// Watch for code changes from collaboration or other sources
+watch(() => currentCode.value, () => {
+  updateHighlighting()
+})
+
 // Listen for code updates from collaboration
 onMounted(() => {
+  updateHighlighting()
+
   if (collabStore.socket) {
     collabStore.socket.on('code-update', (data) => {
       editorStore.setCode(data.editorType, data.content)
@@ -247,3 +344,20 @@ onUnmounted(() => {
   }
 })
 </script>
+
+<style scoped>
+/* Hide scrollbar for highlight layer */
+.highlight-layer::-webkit-scrollbar {
+  display: none;
+}
+
+/* Selection styling for textarea */
+textarea::selection {
+  background: rgba(38, 79, 120, 0.6);
+}
+
+/* Ensure line numbers stay aligned */
+.line-numbers {
+  box-sizing: border-box;
+}
+</style>
