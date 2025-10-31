@@ -445,12 +445,6 @@ function handleKeyDown(event) {
       textarea.selectionStart = textarea.selectionEnd = start + 2
     }, 0)
   }
-
-  // Ctrl+S to save
-  if (event.ctrlKey && event.key === 's') {
-    event.preventDefault()
-    // Save handled by parent/header component
-  }
 }
 
 // Watch for code changes from collaboration or other sources

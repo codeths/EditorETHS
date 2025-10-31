@@ -30,14 +30,6 @@
       <!-- Right Section -->
       <div class="flex items-center gap-2">
         <button
-          @click="handleSave"
-          class="btn btn-sm btn-primary"
-          title="Save Project (Ctrl+S)"
-        >
-          Save
-        </button>
-
-        <button
           @click="handleExport"
           class="btn btn-sm btn-ghost"
           title="Export as ZIP"
@@ -170,11 +162,6 @@ function toggleMenu() {
 
 function toggleFullscreen() {
   uiStore.toggleFullscreen()
-}
-
-function handleSave() {
-  projectStore.saveCurrentProject()
-  uiStore.showNotification('Project saved!', 'success')
 }
 
 async function handleExport() {
