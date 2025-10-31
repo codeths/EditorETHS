@@ -47,6 +47,8 @@
           @input="handleCodeChange"
           @scroll="handleScroll"
           @keydown="handleKeyDown"
+          @click="emitCursorPosition"
+          @select="emitCursorPosition"
           class="absolute inset-0 w-full h-full p-5 m-0 border-0 bg-transparent resize-none overflow-auto z-[2] whitespace-pre focus:outline-none"
           style="color: transparent; caret-color: white; font-family: 'Consolas', 'Monaco', monospace; font-size: 14px; line-height: 1.6; tab-size: 4; -moz-tab-size: 4;"
           :placeholder="`Enter ${activeTab.toUpperCase()} code here...`"
@@ -71,6 +73,27 @@
           >
             <span class="text-xl">{{ suggestion[1] }}</span>
             <span class="text-sm text-[#dcdcdc]">:{{ suggestion[0] }}:</span>
+          </div>
+        </div>
+
+        <!-- Remote Cursors -->
+        <div
+          v-for="(cursor, userId) in remoteCursorsForCurrentTab"
+          :key="userId"
+          class="absolute pointer-events-none z-[4]"
+          :style="getCursorStyle(cursor)"
+        >
+          <!-- Cursor line -->
+          <div
+            class="w-0.5 h-5 animate-pulse"
+            :style="{ backgroundColor: cursor.color }"
+          ></div>
+          <!-- Name label -->
+          <div
+            class="absolute top-0 left-1 px-2 py-1 rounded text-xs text-white whitespace-nowrap shadow-lg"
+            :style="{ backgroundColor: cursor.color }"
+          >
+            {{ cursor.name }}
           </div>
         </div>
       </div>
@@ -156,6 +179,17 @@ const activeTab = computed(() => editorStore.activeTab)
 const consoleMessages = computed(() => editorStore.consoleMessages)
 const currentSyntaxError = computed(() => editorStore.syntaxErrors[activeTab.value])
 
+// Remote cursors for collaboration
+const remoteCursorsForCurrentTab = computed(() => {
+  const cursors = {}
+  for (const [userId, cursor] of Object.entries(collabStore.remoteCursors)) {
+    if (cursor.editorType === activeTab.value) {
+      cursors[userId] = cursor
+    }
+  }
+  return cursors
+})
+
 const currentCode = computed({
   get() {
     switch (activeTab.value) {
@@ -228,10 +262,49 @@ function handleCodeChange() {
   // Emit code change to collaboration if in session
   if (collabStore.inCollabSession) {
     collabStore.emitCodeChange(activeTab.value, currentCode.value)
+    // Also emit cursor position
+    emitCursorPosition()
   }
 
   // Schedule syntax check
   scheduleSyntaxCheck()
+}
+
+function emitCursorPosition() {
+  if (!collabStore.inCollabSession || !editorTextarea.value) return
+
+  const position = editorTextarea.value.selectionStart
+  collabStore.emitCursorMove(activeTab.value, position)
+}
+
+function getCursorStyle(cursor) {
+  if (!editorTextarea.value || !cursor.position) {
+    return { display: 'none' }
+  }
+
+  const textarea = editorTextarea.value
+  const text = currentCode.value
+  const position = Math.min(cursor.position, text.length)
+
+  // Calculate line and column from position
+  const before = text.substring(0, position)
+  const lines = before.split('\n')
+  const lineNumber = lines.length - 1
+  const column = lines[lines.length - 1].length
+
+  // Approximate pixel position
+  // Font metrics: 14px font size, 1.6 line height, ~8.4px char width (monospace)
+  const charWidth = 8.4
+  const lineHeight = 14 * 1.6
+  const padding = 20 // 5 * 4 (5 = p-5)
+
+  const left = padding + (column * charWidth)
+  const top = padding + (lineNumber * lineHeight)
+
+  return {
+    left: `${left}px`,
+    top: `${top}px`
+  }
 }
 
 function scheduleSyntaxCheck() {
