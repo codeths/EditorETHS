@@ -24,7 +24,15 @@
           </svg>
         </button>
 
-        <h1 class="text-lg font-semibold">{{ currentProjectName }}</h1>
+        <input
+          v-model="editableProjectName"
+          @blur="updateProjectName"
+          @keyup.enter="$event.target.blur()"
+          type="text"
+          class="text-lg font-semibold bg-transparent border-0 focus:outline-none focus:ring-2 focus:ring-primary rounded px-2 py-1 -ml-2"
+          placeholder="Project Name"
+          maxlength="50"
+        />
       </div>
 
       <!-- Right Section -->
@@ -83,6 +91,20 @@
         <h3 class="font-bold text-lg mb-4">Collaboration</h3>
 
         <div v-if="!inCollabSession" class="space-y-4">
+          <!-- Name Input -->
+          <div>
+            <label class="label">
+              <span class="label-text">Your Name</span>
+            </label>
+            <input
+              v-model="userName"
+              type="text"
+              placeholder="Enter your name"
+              class="input input-bordered w-full"
+              maxlength="20"
+            />
+          </div>
+
           <button @click="createRoom" class="btn btn-primary w-full">
             Create Collaboration Room
           </button>
@@ -136,7 +158,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useProjectStore } from '../stores/project'
 import { useCollaborationStore } from '../stores/collaboration'
 import { useUIStore } from '../stores/ui'
@@ -150,11 +172,21 @@ const editorStore = useEditorStore()
 
 const fileInput = ref(null)
 const joinRoomCode = ref('')
+const userName = ref('')
+const editableProjectName = ref('')
 
 const currentProjectName = computed(() => projectStore.currentProjectName)
 const inCollabSession = computed(() => collabStore.inCollabSession)
 const showCollabMenu = computed(() => uiStore.showCollabMenu)
 const roomCode = computed(() => collabStore.roomCode)
+
+// Initialize editable project name
+editableProjectName.value = currentProjectName.value
+
+// Watch for project changes
+watch(currentProjectName, (newName) => {
+  editableProjectName.value = newName
+})
 
 function toggleMenu() {
   projectStore.toggleMenu()
@@ -162,6 +194,17 @@ function toggleMenu() {
 
 function toggleFullscreen() {
   uiStore.toggleFullscreen()
+}
+
+function updateProjectName() {
+  const newName = editableProjectName.value.trim()
+  if (newName && newName !== projectStore.currentProjectName) {
+    projectStore.currentProjectName = newName
+    // Auto-save will trigger automatically via the watcher in App.vue
+  } else if (!newName) {
+    // Reset to current name if empty
+    editableProjectName.value = projectStore.currentProjectName
+  }
 }
 
 async function handleExport() {
@@ -312,6 +355,13 @@ function closeCollabMenu() {
 }
 
 async function createRoom() {
+  // Set user name (use default if empty)
+  if (userName.value.trim()) {
+    collabStore.userName = userName.value.trim()
+  } else {
+    collabStore.userName = 'Guest'
+  }
+
   const response = await collabStore.createRoom()
   if (response.success) {
     uiStore.showNotification('Room created!', 'success')
@@ -322,6 +372,13 @@ async function createRoom() {
 
 async function joinRoom() {
   if (!joinRoomCode.value) return
+
+  // Set user name (use default if empty)
+  if (userName.value.trim()) {
+    collabStore.userName = userName.value.trim()
+  } else {
+    collabStore.userName = 'Guest'
+  }
 
   const response = await collabStore.joinRoom(joinRoomCode.value)
   if (response.success) {

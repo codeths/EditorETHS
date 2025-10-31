@@ -103,101 +103,54 @@ function runCode() {
   if (!iframe) return
 
   try {
-    const html = editorStore.htmlCode
+    let html = editorStore.htmlCode
     const css = editorStore.cssCode
     const js = addLoopProtection(editorStore.jsCode)
 
-    const fullHTML = `
-<!DOCTYPE html>
+    // Check if user provided full HTML document
+    const hasDoctype = html.toLowerCase().includes('<!doctype')
+    const hasHtmlTag = html.toLowerCase().includes('<html')
+    const hasBodyTag = html.toLowerCase().includes('<body')
+
+    let fullHTML
+
+    if (hasDoctype || (hasHtmlTag && hasBodyTag)) {
+      // User provided full HTML structure - inject our scripts into their document
+      const consoleScript = `<script>(function(){const originalConsole={log:console.log,error:console.error,warn:console.warn,info:console.info};function sendToParent(type,args){try{window.parent.postMessage({type:'console',level:type,message:Array.from(args).map(arg=>{try{return typeof arg==='object'?JSON.stringify(arg,null,2):String(arg)}catch(e){return String(arg)}}).join(' ')},'*')}catch(e){}}console.log=function(...args){originalConsole.log.apply(console,args);sendToParent('log',args)};console.error=function(...args){originalConsole.error.apply(console,args);sendToParent('error',args)};console.warn=function(...args){originalConsole.warn.apply(console,args);sendToParent('warn',args)};console.info=function(...args){originalConsole.info.apply(console,args);sendToParent('info',args)};window.onerror=function(message,source,lineno,colno,error){sendToParent('error',[message+' (Line '+lineno+')']);return false};window.onunhandledrejection=function(event){sendToParent('error',['Unhandled Promise Rejection: '+event.reason])}})();<\/script>`
+      const userScript = `<script>try{${js}}catch(error){console.error('Runtime Error: '+error.message)}<\/script>`
+
+      // Try to inject before </body>, or before </html>, or at the end
+      if (html.toLowerCase().includes('</body>')) {
+        fullHTML = html.replace(/<\/body>/i, `${consoleScript}${userScript}</body>`)
+      } else if (html.toLowerCase().includes('</html>')) {
+        fullHTML = html.replace(/<\/html>/i, `${consoleScript}${userScript}</html>`)
+      } else {
+        fullHTML = html + consoleScript + userScript
+      }
+
+      // Inject CSS into head if possible
+      if (css && html.toLowerCase().includes('</head>')) {
+        fullHTML = fullHTML.replace(/<\/head>/i, `<style>${css}</style></head>`)
+      } else if (css && html.toLowerCase().includes('<head>')) {
+        fullHTML = fullHTML.replace(/<head>/i, `<head><style>${css}</style>`)
+      }
+    } else {
+      // User provided HTML fragments - wrap in our structure
+      fullHTML = `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <style>
-    ${css}
-  </style>
+  <style>${css}</style>
 </head>
 <body>
   ${html}
-  <script>
-    // Capture console messages
-    (function() {
-      const originalConsole = {
-        log: console.log,
-        error: console.error,
-        warn: console.warn,
-        info: console.info
-      };
-
-      function sendToParent(type, args) {
-        try {
-          window.parent.postMessage({
-            type: 'console',
-            level: type,
-            message: Array.from(args).map(arg => {
-              try {
-                return typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg);
-              } catch (e) {
-                return String(arg);
-              }
-            }).join(' ')
-          }, '*');
-        } catch (e) {
-          // Ignore postMessage errors
-        }
-      }
-
-      console.log = function(...args) {
-        originalConsole.log.apply(console, args);
-        sendToParent('log', args);
-      };
-
-      console.error = function(...args) {
-        originalConsole.error.apply(console, args);
-        sendToParent('error', args);
-      };
-
-      console.warn = function(...args) {
-        originalConsole.warn.apply(console, args);
-        sendToParent('warn', args);
-      };
-
-      console.info = function(...args) {
-        originalConsole.info.apply(console, args);
-        sendToParent('info', args);
-      };
-
-      // Capture errors
-      window.onerror = function(message, source, lineno, colno, error) {
-        sendToParent('error', [message + ' (Line ' + lineno + ')']);
-        return false;
-      };
-
-      window.onunhandledrejection = function(event) {
-        sendToParent('error', ['Unhandled Promise Rejection: ' + event.reason]);
-      };
-    })();
-  <\/script>
-  <script>
-    try {
-      ${js}
-    } catch (error) {
-      console.error('Runtime Error: ' + error.message);
-    }
-  <\/script>
+  <script>(function(){const originalConsole={log:console.log,error:console.error,warn:console.warn,info:console.info};function sendToParent(type,args){try{window.parent.postMessage({type:'console',level:type,message:Array.from(args).map(arg=>{try{return typeof arg==='object'?JSON.stringify(arg,null,2):String(arg)}catch(e){return String(arg)}}).join(' ')},'*')}catch(e){}}console.log=function(...args){originalConsole.log.apply(console,args);sendToParent('log',args)};console.error=function(...args){originalConsole.error.apply(console,args);sendToParent('error',args)};console.warn=function(...args){originalConsole.warn.apply(console,args);sendToParent('warn',args)};console.info=function(...args){originalConsole.info.apply(console,args);sendToParent('info',args)};window.onerror=function(message,source,lineno,colno,error){sendToParent('error',[message+' (Line '+lineno+')']);return false};window.onunhandledrejection=function(event){sendToParent('error',['Unhandled Promise Rejection: '+event.reason])}})();<\/script>
+  <script>try{${js}}catch(error){console.error('Runtime Error: '+error.message)}<\/script>
 </body>
-</html>
-    `
-
-    // Get iframe document
-    const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document
-
-    if (!iframeDoc) {
-      console.error('Could not access iframe document')
-      return
+</html>`
     }
 
-    // Write to iframe using srcdoc for better compatibility
     iframe.srcdoc = fullHTML
   } catch (error) {
     console.error('Error running code:', error)
