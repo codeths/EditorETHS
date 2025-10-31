@@ -351,8 +351,24 @@ onUnmounted(() => {
   display: none;
 }
 
+/* Ensure textarea text is transparent to show highlighting */
+textarea {
+  color: transparent !important;
+  -webkit-text-fill-color: transparent !important;
+}
+
+/* Placeholder text should be visible but subtle */
+textarea::placeholder {
+  color: rgba(255, 255, 255, 0.3) !important;
+  -webkit-text-fill-color: rgba(255, 255, 255, 0.3) !important;
+}
+
 /* Selection styling for textarea */
 textarea::selection {
+  background: rgba(38, 79, 120, 0.6);
+}
+
+textarea::-moz-selection {
   background: rgba(38, 79, 120, 0.6);
 }
 
