@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { useEditorStore } from './editor'
+import { loadProjectsFromOPFS, saveProjectsToOPFS } from '../composables/useOPFS'
 
 export const useProjectStore = defineStore('project', () => {
   // State
@@ -9,29 +10,32 @@ export const useProjectStore = defineStore('project', () => {
   const projects = ref([])
   const isMenuOpen = ref(false)
   const showNewProjectModal = ref(false)
+  const isSaving = ref(false)
+  const lastSaveTime = ref(null)
 
   // Actions
-  function loadProjects() {
+  async function loadProjects() {
     try {
-      const saved = localStorage.getItem('eths_projects')
-      if (saved) {
-        projects.value = JSON.parse(saved)
-      }
+      projects.value = await loadProjectsFromOPFS()
     } catch (error) {
       console.error('Failed to load projects:', error)
       projects.value = []
     }
   }
 
-  function saveProjects() {
+  async function saveProjects() {
     try {
-      localStorage.setItem('eths_projects', JSON.stringify(projects.value))
+      isSaving.value = true
+      await saveProjectsToOPFS(projects.value)
+      lastSaveTime.value = new Date()
     } catch (error) {
       console.error('Failed to save projects:', error)
+    } finally {
+      isSaving.value = false
     }
   }
 
-  function saveCurrentProject() {
+  async function saveCurrentProject() {
     const editorStore = useEditorStore()
 
     if (!currentProjectId.value) {
@@ -58,7 +62,7 @@ export const useProjectStore = defineStore('project', () => {
       }
     }
 
-    saveProjects()
+    await saveProjects()
   }
 
   function loadProject(projectId) {
@@ -74,9 +78,9 @@ export const useProjectStore = defineStore('project', () => {
     }
   }
 
-  function deleteProject(projectId) {
+  async function deleteProject(projectId) {
     projects.value = projects.value.filter(p => p.id !== projectId)
-    saveProjects()
+    await saveProjects()
 
     if (currentProjectId.value === projectId) {
       createNewProject()
@@ -114,6 +118,8 @@ export const useProjectStore = defineStore('project', () => {
     projects,
     isMenuOpen,
     showNewProjectModal,
+    isSaving,
+    lastSaveTime,
     loadProjects,
     saveProjects,
     saveCurrentProject,
