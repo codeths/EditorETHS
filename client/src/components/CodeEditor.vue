@@ -36,7 +36,8 @@
         ><code
           ref="highlightCode"
           :class="`language-${getLanguageClass()}`"
-          class="block m-0 p-0 border-0 bg-transparent font-mono text-sm leading-[1.6] whitespace-pre"
+          class="block m-0 p-0 border-0 bg-transparent font-mono whitespace-pre"
+          style="font-size: 14px; line-height: 1.6;"
           v-html="highlightedCode"
         ></code></pre>
 
@@ -292,15 +293,18 @@ function getCursorStyle(cursor) {
   const lineNumber = lines.length - 1
   const column = lines[lines.length - 1].length
 
-  // Approximate pixel position
-  // Font metrics: 14px font size, 1.6 line height, ~8.4px char width (monospace)
-  const charWidth = 8.4
-  const lineHeight = 14 * 1.6
-  const padding = 20 // 5 * 4 (5 = p-5)
-  const cursorOffset = 5 // Adjust for cursor height alignment
+  // Get actual computed styles from the textarea
+  const computedStyle = window.getComputedStyle(textarea)
+  const lineHeight = parseFloat(computedStyle.lineHeight)
+  const fontSize = parseFloat(computedStyle.fontSize)
+  const paddingTop = parseFloat(computedStyle.paddingTop)
 
-  const left = padding + (column * charWidth)
-  const top = padding + (lineNumber * lineHeight) + cursorOffset
+  // Calculate character width based on font size
+  // For Consolas/Monaco monospace fonts, width is approximately 0.6 * fontSize
+  const charWidth = fontSize * 0.6
+
+  const left = paddingTop + (column * charWidth)
+  const top = paddingTop + (lineNumber * lineHeight)
 
   return {
     left: `${left}px`,
