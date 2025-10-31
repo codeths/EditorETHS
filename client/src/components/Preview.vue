@@ -206,9 +206,53 @@ function runCode() {
 }
 
 function addLoopProtection(code) {
-  // Add basic infinite loop protection
-  // This is a simple version - the original has more sophisticated protection
-  return code
+  if (!code || !code.trim()) return code
+
+  try {
+    // Add loop protection by instrumenting while/for loops
+    let protectedCode = code
+
+    // Protect while loops
+    protectedCode = protectedCode.replace(
+      /while\s*\([^)]+\)\s*{/g,
+      (match) => {
+        return match + '\nlet __loopCounter = 0; const __maxLoops = 100000;'
+      }
+    )
+
+    protectedCode = protectedCode.replace(
+      /while\s*\([^)]+\)\s*{([^}]*?)}/gs,
+      (match, body) => {
+        if (!body.includes('__loopCounter++')) {
+          return match.replace(
+            '{',
+            '{\nlet __loopCounter = 0; const __maxLoops = 100000;\nif (++__loopCounter > __maxLoops) throw new Error("Infinite loop detected!");'
+          )
+        }
+        return match
+      }
+    )
+
+    // Protect for loops
+    protectedCode = protectedCode.replace(
+      /for\s*\([^)]+\)\s*{([^}]*?)}/gs,
+      (match, body) => {
+        if (!body.includes('__loopCounter++')) {
+          return match.replace(
+            '{',
+            '{\nlet __loopCounter = 0; const __maxLoops = 100000;\nif (++__loopCounter > __maxLoops) throw new Error("Infinite loop detected!");'
+          )
+        }
+        return match
+      }
+    )
+
+    return protectedCode
+  } catch (error) {
+    // If instrumentation fails, return original code
+    console.warn('Loop protection failed:', error)
+    return code
+  }
 }
 
 function openInNewWindow() {
