@@ -52,6 +52,27 @@
           :placeholder="`Enter ${activeTab.toUpperCase()} code here...`"
           spellcheck="false"
         ></textarea>
+
+        <!-- Emoji Autocomplete -->
+        <div
+          v-if="emojiSuggestions.length > 0"
+          class="absolute bg-[#2d2d2d] border border-[#3e3e42] rounded shadow-lg z-[3] max-h-64 overflow-y-auto"
+          :style="{ left: emojiPopupPos.x + 'px', top: emojiPopupPos.y + 'px' }"
+        >
+          <div
+            v-for="(suggestion, index) in emojiSuggestions"
+            :key="suggestion[0]"
+            @click="selectEmoji(suggestion[0])"
+            @mouseenter="selectedEmojiIndex = index"
+            :class="[
+              'px-3 py-2 cursor-pointer flex items-center gap-2',
+              selectedEmojiIndex === index && 'bg-[#3e3e42]'
+            ]"
+          >
+            <span class="text-xl">{{ suggestion[1] }}</span>
+            <span class="text-sm text-[#dcdcdc]">:{{ suggestion[0] }}:</span>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -95,6 +116,8 @@
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useEditorStore } from '../stores/editor'
 import { useCollaborationStore } from '../stores/collaboration'
+import { checkAutocompletePattern } from '../composables/useAutocomplete'
+import { searchEmojis, getEmojiTrigger, insertEmoji } from '../composables/useEmoji'
 import hljs from 'highlight.js/lib/core'
 import javascript from 'highlight.js/lib/languages/javascript'
 import css from 'highlight.js/lib/languages/css'
@@ -117,6 +140,11 @@ const lineNumbers = ref(null)
 const syntaxCheckTimer = ref(null)
 const highlightedCode = ref('')
 const totalLines = ref(1)
+
+// Emoji autocomplete
+const emojiSuggestions = ref([])
+const selectedEmojiIndex = ref(0)
+const emojiPopupPos = ref({ x: 0, y: 0 })
 
 const tabs = [
   { id: 'html', label: 'HTML' },
@@ -193,6 +221,9 @@ function switchTab(tab) {
 function handleCodeChange() {
   // Update syntax highlighting
   updateHighlighting()
+
+  // Check for emoji autocomplete
+  checkEmojiAutocomplete()
 
   // Emit code change to collaboration if in session
   if (collabStore.inCollabSession) {
@@ -297,11 +328,111 @@ function clearConsole() {
   editorStore.clearConsole()
 }
 
+function checkEmojiAutocomplete() {
+  const textarea = editorTextarea.value
+  if (!textarea) return
+
+  const cursorPos = textarea.selectionStart
+  const trigger = getEmojiTrigger(currentCode.value, cursorPos)
+
+  if (trigger && trigger.query.length > 0) {
+    // Search for matching emojis
+    const matches = searchEmojis(trigger.query)
+    emojiSuggestions.value = matches
+    selectedEmojiIndex.value = 0
+
+    // Position the popup near the cursor
+    if (matches.length > 0) {
+      const coords = getCaretCoordinates()
+      emojiPopupPos.value = {
+        x: coords.left,
+        y: coords.top + 20
+      }
+    }
+  } else {
+    emojiSuggestions.value = []
+  }
+}
+
+function selectEmoji(emojiName) {
+  const textarea = editorTextarea.value
+  if (!textarea) return
+
+  const cursorPos = textarea.selectionStart
+  const result = insertEmoji(currentCode.value, cursorPos, emojiName)
+
+  if (result) {
+    currentCode.value = result.newValue
+    emojiSuggestions.value = []
+
+    nextTick(() => {
+      textarea.selectionStart = textarea.selectionEnd = result.newPos
+      textarea.focus()
+    })
+  }
+}
+
+function getCaretCoordinates() {
+  const textarea = editorTextarea.value
+  if (!textarea) return { left: 0, top: 0 }
+
+  // Simple approximation - position relative to textarea
+  const rect = textarea.getBoundingClientRect()
+  return {
+    left: rect.left + 100, // Offset from left
+    top: rect.top + 100 // Offset from top
+  }
+}
+
 function handleKeyDown(event) {
+  const textarea = editorTextarea.value
+  if (!textarea) return
+
+  // Handle emoji autocomplete navigation
+  if (emojiSuggestions.value.length > 0) {
+    if (event.key === 'ArrowDown') {
+      event.preventDefault()
+      selectedEmojiIndex.value = (selectedEmojiIndex.value + 1) % emojiSuggestions.value.length
+      return
+    }
+    if (event.key === 'ArrowUp') {
+      event.preventDefault()
+      selectedEmojiIndex.value = (selectedEmojiIndex.value - 1 + emojiSuggestions.value.length) % emojiSuggestions.value.length
+      return
+    }
+    if (event.key === 'Enter' || event.key === 'Tab') {
+      event.preventDefault()
+      const selected = emojiSuggestions.value[selectedEmojiIndex.value]
+      if (selected) {
+        selectEmoji(selected[0])
+      }
+      return
+    }
+    if (event.key === 'Escape') {
+      emojiSuggestions.value = []
+      return
+    }
+  }
+
+  // Check for autocomplete patterns on specific keys
+  const triggerKeys = ['>', ')', '}', ' ']
+  if (triggerKeys.includes(event.key)) {
+    setTimeout(() => {
+      const cursorPos = textarea.selectionStart
+      const result = checkAutocompletePattern(currentCode.value, cursorPos, event.key)
+
+      if (result) {
+        currentCode.value = result.newValue
+        nextTick(() => {
+          textarea.selectionStart = textarea.selectionEnd = result.newPos
+        })
+      }
+    }, 0)
+  }
+
   // Tab key handling
-  if (event.key === 'Tab') {
+  if (event.key === 'Tab' && emojiSuggestions.value.length === 0) {
     event.preventDefault()
-    const textarea = editorTextarea.value
     const start = textarea.selectionStart
     const end = textarea.selectionEnd
 
