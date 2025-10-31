@@ -54,13 +54,14 @@
         ref="previewFrame"
         class="w-full h-full border-0"
         sandbox="allow-scripts allow-modals allow-forms allow-same-origin"
+        @load="onIframeLoad"
       ></iframe>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, watch, onMounted, onUnmounted } from 'vue'
+import { ref, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useEditorStore } from '../stores/editor'
 import { useUIStore } from '../stores/ui'
 
@@ -69,6 +70,7 @@ const uiStore = useUIStore()
 
 const previewFrame = ref(null)
 const autoRunTimer = ref(null)
+const iframeReady = ref(false)
 
 // Auto-run code when it changes (with debounce)
 watch(
@@ -81,6 +83,10 @@ watch(
     scheduleAutoRun()
   }
 )
+
+function onIframeLoad() {
+  iframeReady.value = true
+}
 
 function scheduleAutoRun() {
   if (autoRunTimer.value) {
@@ -96,11 +102,12 @@ function runCode() {
   const iframe = previewFrame.value
   if (!iframe) return
 
-  const html = editorStore.htmlCode
-  const css = editorStore.cssCode
-  const js = addLoopProtection(editorStore.jsCode)
+  try {
+    const html = editorStore.htmlCode
+    const css = editorStore.cssCode
+    const js = addLoopProtection(editorStore.jsCode)
 
-  const fullHTML = `
+    const fullHTML = `
 <!DOCTYPE html>
 <html>
 <head>
@@ -123,17 +130,21 @@ function runCode() {
       };
 
       function sendToParent(type, args) {
-        window.parent.postMessage({
-          type: 'console',
-          level: type,
-          message: Array.from(args).map(arg => {
-            try {
-              return typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg);
-            } catch (e) {
-              return String(arg);
-            }
-          }).join(' ')
-        }, '*');
+        try {
+          window.parent.postMessage({
+            type: 'console',
+            level: type,
+            message: Array.from(args).map(arg => {
+              try {
+                return typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg);
+              } catch (e) {
+                return String(arg);
+              }
+            }).join(' ')
+          }, '*');
+        } catch (e) {
+          // Ignore postMessage errors
+        }
       }
 
       console.log = function(...args) {
@@ -176,13 +187,22 @@ function runCode() {
   <\/script>
 </body>
 </html>
-  `
+    `
 
-  // Write to iframe
-  const iframeDoc = iframe.contentDocument || iframe.contentWindow.document
-  iframeDoc.open()
-  iframeDoc.write(fullHTML)
-  iframeDoc.close()
+    // Get iframe document
+    const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document
+
+    if (!iframeDoc) {
+      console.error('Could not access iframe document')
+      return
+    }
+
+    // Write to iframe using srcdoc for better compatibility
+    iframe.srcdoc = fullHTML
+  } catch (error) {
+    console.error('Error running code:', error)
+    editorStore.addConsoleMessage('error', 'Preview error: ' + error.message)
+  }
 }
 
 function addLoopProtection(code) {
@@ -231,8 +251,14 @@ function handleMessage(event) {
 
 onMounted(() => {
   window.addEventListener('message', handleMessage)
-  // Run code on mount
-  runCode()
+
+  // Wait for next tick to ensure iframe is in DOM
+  nextTick(() => {
+    // Run code after a short delay to ensure iframe is ready
+    setTimeout(() => {
+      runCode()
+    }, 100)
+  })
 
   // Keyboard shortcut for running code
   const handleKeyDown = (event) => {
