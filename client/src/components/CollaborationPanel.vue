@@ -72,7 +72,7 @@
   <button
     v-if="inCollabSession && !showParticipantsPanel"
     @click="showPanel"
-    class="absolute top-20 right-4 btn btn-sm btn-primary"
+    class="absolute top-32 right-4 btn btn-sm btn-primary z-10"
     title="Show Collaboration Panel"
   >
     Show Panel
