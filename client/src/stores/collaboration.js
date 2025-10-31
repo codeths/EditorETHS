@@ -73,7 +73,18 @@ export const useCollaborationStore = defineStore('collaboration', () => {
     if (!socket.value) initializeSocket()
 
     return new Promise((resolve) => {
-      socket.value.emit('create-room', { name: userName.value }, (response) => {
+      // Get current code state to send to server
+      const editorStore = useEditorStore()
+      const currentState = {
+        html: editorStore.htmlCode,
+        css: editorStore.cssCode,
+        js: editorStore.jsCode
+      }
+
+      socket.value.emit('create-room', {
+        name: userName.value,
+        state: currentState
+      }, (response) => {
         if (response.success) {
           roomCode.value = response.roomCode
           participants.value = [{ ...response.participant, isHost: true }]

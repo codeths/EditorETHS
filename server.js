@@ -69,7 +69,7 @@ io.on('connection', (socket) => {
       code: roomCode,
       host: socket.id,
       participants: new Map(),
-      state: data.initialState || { js: '', html: '', css: '', history: [] },
+      state: data.state || { js: '', html: '', css: '' },
       lastUpdate: Date.now()
     };
 
