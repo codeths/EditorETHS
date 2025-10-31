@@ -362,7 +362,14 @@ async function createRoom() {
     collabStore.userName = 'Guest'
   }
 
-  const response = await collabStore.createRoom()
+  // Get current code state to share with room
+  const currentState = {
+    html: editorStore.htmlCode,
+    css: editorStore.cssCode,
+    js: editorStore.jsCode
+  }
+
+  const response = await collabStore.createRoom(currentState)
   if (response.success) {
     uiStore.showNotification('Room created!', 'success')
   } else {
