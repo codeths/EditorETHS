@@ -598,6 +598,16 @@ function handleKeyDown(event) {
 // Watch for code changes from collaboration or other sources
 watch(() => currentCode.value, () => {
   updateHighlighting()
+
+  // Update scroll position when code changes (for cursor positioning)
+  nextTick(() => {
+    if (editorTextarea.value) {
+      scrollPosition.value = {
+        top: editorTextarea.value.scrollTop,
+        left: editorTextarea.value.scrollLeft
+      }
+    }
+  })
 })
 
 // Listen for code updates from collaboration
@@ -610,9 +620,17 @@ onMounted(() => {
     })
   }
 
-  // Initialize editor height
+  // Initialize editor height and scroll position
   nextTick(() => {
     updateEditorHeight()
+
+    // Initialize scroll position for cursor tracking
+    if (editorTextarea.value) {
+      scrollPosition.value = {
+        top: editorTextarea.value.scrollTop,
+        left: editorTextarea.value.scrollLeft
+      }
+    }
   })
 
   // Update heights on window resize

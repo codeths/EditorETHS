@@ -7,7 +7,7 @@
       <ProjectMenu />
 
       <!-- Main Editor Area -->
-      <div class="flex-1 flex overflow-hidden relative">
+      <div ref="mainEditorContainer" class="flex-1 flex overflow-hidden relative">
         <div :style="{ width: editorWidth + '%' }" class="flex overflow-hidden">
           <CodeEditor />
         </div>
@@ -31,7 +31,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onUnmounted } from 'vue'
 import Header from '../components/Header.vue'
 import CodeEditor from '../components/CodeEditor.vue'
 import Preview from '../components/Preview.vue'
@@ -40,14 +40,22 @@ import ProjectMenu from '../components/ProjectMenu.vue'
 
 // Resizable editor width
 const editorWidth = ref(50) // Default 50%
+const mainEditorContainer = ref(null)
 let isResizing = false
 let startX = 0
 let startWidth = 0
+let containerWidth = 0
 
 function startResize(e) {
   isResizing = true
   startX = e.clientX
   startWidth = editorWidth.value
+
+  // Get container width at start of resize
+  if (mainEditorContainer.value) {
+    containerWidth = mainEditorContainer.value.offsetWidth
+  }
+
   document.body.style.cursor = 'col-resize'
   document.body.style.userSelect = 'none'
 
@@ -56,12 +64,8 @@ function startResize(e) {
 }
 
 function handleResize(e) {
-  if (!isResizing) return
+  if (!isResizing || !containerWidth) return
 
-  const container = e.target.closest('.flex-1')
-  if (!container) return
-
-  const containerWidth = container.offsetWidth
   const deltaX = e.clientX - startX
   const deltaPercent = (deltaX / containerWidth) * 100
 
