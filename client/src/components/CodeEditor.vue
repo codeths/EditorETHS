@@ -16,7 +16,7 @@
     </div>
 
     <!-- Editor Area with 2-Layer System -->
-    <div class="flex-1 overflow-hidden bg-[#1e1e1e] flex">
+    <div :style="{ height: editorHeight + 'px' }" class="overflow-hidden bg-[#1e1e1e] flex flex-shrink-0">
       <!-- Line Numbers -->
       <div
         ref="lineNumbers"
@@ -100,13 +100,20 @@
       </div>
     </div>
 
+    <!-- Console Resize Handle -->
+    <div
+      @mousedown="startConsoleResize"
+      class="h-1 bg-base-300 hover:bg-primary cursor-row-resize transition-colors"
+      title="Drag to resize console"
+    ></div>
+
     <!-- Console -->
-    <div class="border-t border-base-300 bg-base-200">
-      <div class="flex justify-between items-center px-4 py-2 border-b border-base-300">
+    <div class="border-t border-base-300 bg-base-200 flex flex-col flex-shrink-0" :style="{ height: consoleHeight + 'px' }">
+      <div class="flex justify-between items-center px-4 py-2 border-b border-base-300 flex-shrink-0">
         <span class="font-semibold text-sm">Console</span>
         <button @click="clearConsole" class="btn btn-xs btn-ghost">Clear</button>
       </div>
-      <div class="h-32 overflow-y-auto px-4 py-2 font-mono text-xs">
+      <div class="flex-1 overflow-y-auto px-4 py-2 font-mono text-xs">
         <div
           v-for="(msg, index) in consoleMessages"
           :key="index"
@@ -164,6 +171,16 @@ const lineNumbers = ref(null)
 const syntaxCheckTimer = ref(null)
 const highlightedCode = ref('')
 const totalLines = ref(1)
+
+// Scroll position tracking for cursor positioning
+const scrollPosition = ref({ top: 0, left: 0 })
+
+// Resizable editor and console
+const editorHeight = ref(400) // Default editor height
+const consoleHeight = ref(128) // Default console height (h-32 = 128px)
+let isResizingConsole = false
+let consoleResizeStartY = 0
+let consoleResizeStartHeight = 0
 
 // Emoji autocomplete
 const emojiSuggestions = ref([])
@@ -244,6 +261,57 @@ function handleScroll(event) {
   if (lineNumbers.value) {
     lineNumbers.value.scrollTop = event.target.scrollTop
   }
+
+  // Update scroll position for cursor tracking
+  scrollPosition.value = {
+    top: event.target.scrollTop,
+    left: event.target.scrollLeft
+  }
+}
+
+function startConsoleResize(e) {
+  isResizingConsole = true
+  consoleResizeStartY = e.clientY
+  consoleResizeStartHeight = consoleHeight.value
+  document.body.style.cursor = 'row-resize'
+  document.body.style.userSelect = 'none'
+
+  document.addEventListener('mousemove', handleConsoleResize)
+  document.addEventListener('mouseup', stopConsoleResize)
+}
+
+function handleConsoleResize(e) {
+  if (!isResizingConsole) return
+
+  const deltaY = consoleResizeStartY - e.clientY // Inverted because console grows upward
+  const newHeight = consoleResizeStartHeight + deltaY
+
+  // Constrain between 80px and 400px
+  consoleHeight.value = Math.min(400, Math.max(80, newHeight))
+
+  // Adjust editor height accordingly
+  updateEditorHeight()
+}
+
+function stopConsoleResize() {
+  isResizingConsole = false
+  document.body.style.cursor = ''
+  document.body.style.userSelect = ''
+
+  document.removeEventListener('mousemove', handleConsoleResize)
+  document.removeEventListener('mouseup', stopConsoleResize)
+}
+
+function updateEditorHeight() {
+  // Calculate available height (component height minus console height and resize handle)
+  const component = editorTextarea.value?.closest('.flex-1.flex.flex-col')
+  if (component) {
+    const componentHeight = component.offsetHeight
+    const tabsHeight = 48 // Approximate height of tabs
+    const resizeHandleHeight = 4
+    const availableHeight = componentHeight - consoleHeight.value - tabsHeight - resizeHandleHeight
+    editorHeight.value = Math.max(200, availableHeight)
+  }
 }
 
 function switchTab(tab) {
@@ -298,13 +366,15 @@ function getCursorStyle(cursor) {
   const lineHeight = parseFloat(computedStyle.lineHeight)
   const fontSize = parseFloat(computedStyle.fontSize)
   const paddingTop = parseFloat(computedStyle.paddingTop)
+  const paddingLeft = parseFloat(computedStyle.paddingLeft)
 
   // Calculate character width based on font size
   // For Consolas/Monaco monospace fonts, width is approximately 0.6 * fontSize
   const charWidth = fontSize * 0.6
 
-  const left = paddingTop + (column * charWidth)
-  const top = paddingTop + (lineNumber * lineHeight)
+  // Account for scroll position (use reactive scrollPosition)
+  const left = paddingLeft + (column * charWidth) - scrollPosition.value.left
+  const top = paddingTop + (lineNumber * lineHeight) - scrollPosition.value.top
 
   return {
     left: `${left}px`,
@@ -539,9 +609,20 @@ onMounted(() => {
       editorStore.setCode(data.editorType, data.content)
     })
   }
+
+  // Initialize editor height
+  nextTick(() => {
+    updateEditorHeight()
+  })
+
+  // Update heights on window resize
+  window.addEventListener('resize', updateEditorHeight)
 })
 
 onUnmounted(() => {
+  window.removeEventListener('resize', updateEditorHeight)
+  document.removeEventListener('mousemove', handleConsoleResize)
+  document.removeEventListener('mouseup', stopConsoleResize)
   if (syntaxCheckTimer.value) {
     clearTimeout(syntaxCheckTimer.value)
   }
