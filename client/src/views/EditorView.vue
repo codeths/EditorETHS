@@ -41,13 +41,42 @@ import ProjectMenu from '../components/ProjectMenu.vue'
 // Resizable editor width
 const editorWidth = ref(50) // Default 50%
 const mainEditorContainer = ref(null)
-let isResizing = false
+const isResizing = ref(false)
 let startX = 0
 let startWidth = 0
 let containerWidth = 0
 
+const handleResize = (e) => {
+  if (!isResizing.value || !containerWidth) return
+
+  e.preventDefault()
+  e.stopPropagation()
+
+  const deltaX = e.clientX - startX
+  const deltaPercent = (deltaX / containerWidth) * 100
+
+  // Constrain between 20% and 80%
+  const newWidth = Math.min(80, Math.max(20, startWidth + deltaPercent))
+  editorWidth.value = newWidth
+}
+
+const stopResize = () => {
+  if (!isResizing.value) return
+
+  isResizing.value = false
+  document.body.style.cursor = ''
+  document.body.style.userSelect = ''
+
+  document.removeEventListener('mousemove', handleResize, true)
+  document.removeEventListener('mouseup', stopResize, true)
+  console.log('Resize stopped')
+}
+
 function startResize(e) {
-  isResizing = true
+  e.preventDefault()
+  e.stopPropagation()
+
+  isResizing.value = true
   startX = e.clientX
   startWidth = editorWidth.value
 
@@ -59,28 +88,9 @@ function startResize(e) {
   document.body.style.cursor = 'col-resize'
   document.body.style.userSelect = 'none'
 
-  document.addEventListener('mousemove', handleResize)
-  document.addEventListener('mouseup', stopResize)
-}
-
-function handleResize(e) {
-  if (!isResizing || !containerWidth) return
-
-  const deltaX = e.clientX - startX
-  const deltaPercent = (deltaX / containerWidth) * 100
-
-  // Constrain between 20% and 80%
-  const newWidth = Math.min(80, Math.max(20, startWidth + deltaPercent))
-  editorWidth.value = newWidth
-}
-
-function stopResize() {
-  isResizing = false
-  document.body.style.cursor = ''
-  document.body.style.userSelect = ''
-
-  document.removeEventListener('mousemove', handleResize)
-  document.removeEventListener('mouseup', stopResize)
+  document.addEventListener('mousemove', handleResize, true)
+  document.addEventListener('mouseup', stopResize, true)
+  console.log('Resize started')
 }
 
 onUnmounted(() => {

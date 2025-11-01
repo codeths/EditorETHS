@@ -181,6 +181,7 @@ const consoleHeight = ref(128) // Default console height (h-32 = 128px)
 let isResizingConsole = false
 let consoleResizeStartY = 0
 let consoleResizeStartHeight = 0
+const charWidth = ref(8.4) // Will be measured accurately
 
 // Emoji autocomplete
 const emojiSuggestions = ref([])
@@ -267,6 +268,27 @@ function handleScroll(event) {
     top: event.target.scrollTop,
     left: event.target.scrollLeft
   }
+}
+
+function measureCharWidth() {
+  // Measure actual character width using a temporary span
+  if (!editorTextarea.value) return
+
+  const computedStyle = window.getComputedStyle(editorTextarea.value)
+  const span = document.createElement('span')
+  span.style.font = computedStyle.font
+  span.style.fontSize = computedStyle.fontSize
+  span.style.fontFamily = computedStyle.fontFamily
+  span.style.position = 'absolute'
+  span.style.visibility = 'hidden'
+  span.textContent = '0' // Measure width of a single character
+
+  document.body.appendChild(span)
+  const width = span.getBoundingClientRect().width
+  document.body.removeChild(span)
+
+  charWidth.value = width
+  console.log('Measured character width:', width)
 }
 
 function startConsoleResize(e) {
@@ -364,17 +386,25 @@ function getCursorStyle(cursor) {
   // Get actual computed styles from the textarea
   const computedStyle = window.getComputedStyle(textarea)
   const lineHeight = parseFloat(computedStyle.lineHeight)
-  const fontSize = parseFloat(computedStyle.fontSize)
   const paddingTop = parseFloat(computedStyle.paddingTop)
   const paddingLeft = parseFloat(computedStyle.paddingLeft)
 
-  // Calculate character width based on font size
-  // For Consolas/Monaco monospace fonts, width is approximately 0.6 * fontSize
-  const charWidth = fontSize * 0.6
+  // Use measured character width
+  const measuredCharWidth = charWidth.value
 
   // Account for scroll position (use reactive scrollPosition)
-  const left = paddingLeft + (column * charWidth) - scrollPosition.value.left
+  const left = paddingLeft + (column * measuredCharWidth) - scrollPosition.value.left
   const top = paddingTop + (lineNumber * lineHeight) - scrollPosition.value.top
+
+  console.log('Cursor calc:', {
+    userId: Object.keys(collabStore.remoteCursors).find(id => collabStore.remoteCursors[id] === cursor),
+    line: lineNumber,
+    col: column,
+    charWidth: measuredCharWidth,
+    scroll: scrollPosition.value,
+    left,
+    top
+  })
 
   return {
     left: `${left}px`,
@@ -599,13 +629,15 @@ function handleKeyDown(event) {
 watch(() => currentCode.value, () => {
   updateHighlighting()
 
-  // Update scroll position when code changes (for cursor positioning)
+  // Update scroll position and character width when code changes (for cursor positioning)
   nextTick(() => {
     if (editorTextarea.value) {
       scrollPosition.value = {
         top: editorTextarea.value.scrollTop,
         left: editorTextarea.value.scrollLeft
       }
+      // Remeasure character width to ensure accuracy
+      measureCharWidth()
     }
   })
 })
@@ -630,6 +662,8 @@ onMounted(() => {
         top: editorTextarea.value.scrollTop,
         left: editorTextarea.value.scrollLeft
       }
+      // Measure character width for accurate cursor positioning
+      measureCharWidth()
     }
   })
 
