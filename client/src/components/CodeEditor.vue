@@ -359,21 +359,31 @@ function getCursorStyle(cursor) {
   const before = text.substring(0, position)
   const lines = before.split('\n')
   const lineNumber = lines.length - 1
-  const column = lines[lines.length - 1].length
+  const column = lines[lineNumber].length
 
   // Get actual computed styles from the textarea
   const computedStyle = window.getComputedStyle(textarea)
   const lineHeight = parseFloat(computedStyle.lineHeight)
-  const fontSize = parseFloat(computedStyle.fontSize)
   const paddingTop = parseFloat(computedStyle.paddingTop)
   const paddingLeft = parseFloat(computedStyle.paddingLeft)
 
-  // Calculate character width based on font size
-  // For Consolas/Monaco monospace fonts, width is approximately 0.6 * fontSize
-  const charWidth = fontSize * 0.6
+  // Create a temporary span to measure actual character width
+  const measureSpan = document.createElement('span')
+  measureSpan.style.font = computedStyle.font
+  measureSpan.style.fontSize = computedStyle.fontSize
+  measureSpan.style.fontFamily = computedStyle.fontFamily
+  measureSpan.style.position = 'absolute'
+  measureSpan.style.visibility = 'hidden'
+  measureSpan.style.whiteSpace = 'pre'
 
-  // Account for scroll position (use reactive scrollPosition)
-  const left = paddingLeft + (column * charWidth) - scrollPosition.value.left
+  // Measure the actual width of the text up to the cursor position on current line
+  measureSpan.textContent = lines[lineNumber].substring(0, column)
+  document.body.appendChild(measureSpan)
+  const actualWidth = measureSpan.offsetWidth
+  document.body.removeChild(measureSpan)
+
+  // Account for scroll position
+  const left = paddingLeft + actualWidth - scrollPosition.value.left
   const top = paddingTop + (lineNumber * lineHeight) - scrollPosition.value.top
 
   return {
