@@ -158,7 +158,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, nextTick } from 'vue'
 import { useProjectStore } from '../stores/project'
 import { useCollaborationStore } from '../stores/collaboration'
 import { useUIStore } from '../stores/ui'
@@ -332,6 +332,18 @@ function applyImport(imported) {
   // Reset project info
   projectStore.currentProjectId = null
   projectStore.currentProjectName = 'Imported Project'
+
+  // CRITICAL: Force update of all editor views
+  nextTick(() => {
+    // Trigger re-render of syntax highlighting and line numbers
+    const currentTab = editorStore.activeTab
+
+    // Force update on current tab
+    editorStore.switchTab('html')
+    nextTick(() => {
+      editorStore.switchTab(currentTab)
+    })
+  })
 
   // Show success message with details
   const filesImported = []

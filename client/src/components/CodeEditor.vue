@@ -325,6 +325,14 @@ function handleCodeChange() {
   // Update syntax highlighting
   updateHighlighting()
 
+  // CRITICAL: Ensure textarea and highlight layers stay synced
+  nextTick(() => {
+    if (editorTextarea.value && highlightLayer.value) {
+      highlightLayer.value.scrollTop = editorTextarea.value.scrollTop
+      highlightLayer.value.scrollLeft = editorTextarea.value.scrollLeft
+    }
+  })
+
   // Check for emoji autocomplete
   checkEmojiAutocomplete()
 
@@ -609,12 +617,18 @@ function handleKeyDown(event) {
 watch(() => currentCode.value, () => {
   updateHighlighting()
 
-  // Update scroll position when code changes (for cursor positioning)
+  // Force scroll sync between textarea and highlight layers
   nextTick(() => {
     if (editorTextarea.value) {
       scrollPosition.value = {
         top: editorTextarea.value.scrollTop,
         left: editorTextarea.value.scrollLeft
+      }
+
+      // Ensure highlight layer stays synced
+      if (highlightLayer.value) {
+        highlightLayer.value.scrollTop = editorTextarea.value.scrollTop
+        highlightLayer.value.scrollLeft = editorTextarea.value.scrollLeft
       }
     }
   })
