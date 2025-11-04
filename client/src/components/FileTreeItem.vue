@@ -95,6 +95,7 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useFileSystemStore } from '../stores/fileSystem'
+import { useCollaborationStore } from '../stores/collaboration'
 
 const props = defineProps({
   name: String,
@@ -104,6 +105,7 @@ const props = defineProps({
 })
 
 const fsStore = useFileSystemStore()
+const collabStore = useCollaborationStore()
 
 const expanded = ref(fsStore.isDirectoryExpanded(props.path))
 const contextMenuVisible = ref(false)
@@ -181,6 +183,9 @@ function rename() {
     try {
       const newPath = props.path.replace(props.name, newName)
       fsStore.renameItem(props.path, newPath)
+
+      // Emit collaboration event
+      collabStore.emitFileRenamed(props.path, newPath)
     } catch (error) {
       alert(error.message)
     }
@@ -200,6 +205,9 @@ function duplicate() {
 
       try {
         fsStore.createFile(newPath, file.content, file.binary)
+
+        // Emit collaboration event
+        collabStore.emitFileCreated(newPath, file.content, file.binary)
       } catch (error) {
         alert(error.message)
       }
@@ -216,6 +224,9 @@ function deleteItem() {
   if (confirm(confirmMsg)) {
     try {
       fsStore.deleteItem(props.path)
+
+      // Emit collaboration event
+      collabStore.emitFileDeleted(props.path)
     } catch (error) {
       alert(error.message)
     }

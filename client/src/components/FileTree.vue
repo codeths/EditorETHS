@@ -34,6 +34,30 @@
       </div>
     </div>
 
+    <!-- Import/Export Buttons -->
+    <div class="flex gap-1 px-2 py-2 border-b border-base-300 bg-base-100">
+      <button
+        @click="openImportDialog"
+        class="btn btn-xs btn-ghost flex-1"
+        title="Import Files from ZIP"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+        </svg>
+        Import
+      </button>
+      <button
+        @click="openExportDialog"
+        class="btn btn-xs btn-ghost flex-1"
+        title="Export Files to ZIP"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3v-12" />
+        </svg>
+        Export
+      </button>
+    </div>
+
     <!-- File Tree -->
     <div class="flex-1 overflow-y-auto overflow-x-hidden py-2">
       <FileTreeItem
@@ -95,19 +119,41 @@
         </div>
       </div>
     </div>
+
+    <!-- Export Dialog -->
+    <ExportDialog
+      :visible="exportDialogVisible"
+      @close="closeExportDialog"
+      @export="handleExport"
+    />
+
+    <!-- Import Dialog -->
+    <ImportDialog
+      :visible="importDialogVisible"
+      @close="closeImportDialog"
+      @import="handleImport"
+    />
   </div>
 </template>
 
 <script setup>
 import { ref, nextTick, onMounted, onUnmounted } from 'vue'
 import { useFileSystemStore } from '../stores/fileSystem'
+import { useCollaborationStore } from '../stores/collaboration'
+import { useUIStore } from '../stores/ui'
 import FileTreeItem from './FileTreeItem.vue'
+import ExportDialog from './ExportDialog.vue'
+import ImportDialog from './ImportDialog.vue'
 
 const fsStore = useFileSystemStore()
+const collabStore = useCollaborationStore()
+const uiStore = useUIStore()
 
 // Dialog state
 const newFileDialogVisible = ref(false)
 const newFolderDialogVisible = ref(false)
+const exportDialogVisible = ref(false)
+const importDialogVisible = ref(false)
 const newFileName = ref('')
 const newFolderName = ref('')
 
@@ -138,6 +184,10 @@ function createNewFile() {
     const path = '/' + newFileName.value.trim()
     fsStore.createFile(path, '')
     fsStore.activeFilePath = path
+
+    // Emit collaboration event
+    collabStore.emitFileCreated(path, '')
+
     hideNewFileDialog()
   } catch (error) {
     alert(error.message)
@@ -166,6 +216,10 @@ function createNewFolder() {
   try {
     const path = '/' + newFolderName.value.trim()
     fsStore.createDirectory(path)
+
+    // Emit collaboration event
+    collabStore.emitDirectoryCreated(path)
+
     hideNewFolderDialog()
   } catch (error) {
     alert(error.message)
@@ -174,6 +228,34 @@ function createNewFolder() {
 
 function collapseAll() {
   fsStore.collapseAll()
+}
+
+// Import/Export
+function openExportDialog() {
+  exportDialogVisible.value = true
+}
+
+function closeExportDialog() {
+  exportDialogVisible.value = false
+}
+
+function handleExport(data) {
+  uiStore.showNotification(`Exported ${data.count} files to ${data.name}.zip`, 'success')
+}
+
+function openImportDialog() {
+  importDialogVisible.value = true
+}
+
+function closeImportDialog() {
+  importDialogVisible.value = false
+}
+
+function handleImport(data) {
+  uiStore.showNotification(`Imported ${data.count} files (${data.mode} mode)`, 'success')
+
+  // Sync file tree with collaborators
+  collabStore.emitFileTreeSync()
 }
 
 // Keyboard shortcuts

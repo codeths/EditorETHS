@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { io } from 'socket.io-client'
 import { useEditorStore } from './editor'
+import { useFileSystemStore } from './fileSystem'
 
 export const useCollaborationStore = defineStore('collaboration', () => {
   // State
@@ -67,15 +68,98 @@ export const useCollaborationStore = defineStore('collaboration', () => {
         isHost.value = true
       }
     })
+
+    // File operation events
+    socket.value.on('file-created', (data) => {
+      if (!inCollabSession.value) return
+      console.log('File created by remote user:', data.path)
+
+      const fsStore = useFileSystemStore()
+      try {
+        fsStore.createFile(data.path, data.content || '', data.binary || false)
+      } catch (error) {
+        console.error('Failed to create remote file:', error)
+      }
+    })
+
+    socket.value.on('file-updated', (data) => {
+      if (!inCollabSession.value) return
+      console.log('File updated by remote user:', data.path)
+
+      const fsStore = useFileSystemStore()
+      try {
+        fsStore.updateFile(data.path, data.content)
+      } catch (error) {
+        console.error('Failed to update remote file:', error)
+      }
+    })
+
+    socket.value.on('file-deleted', (data) => {
+      if (!inCollabSession.value) return
+      console.log('File deleted by remote user:', data.path)
+
+      const fsStore = useFileSystemStore()
+      try {
+        fsStore.deleteItem(data.path)
+      } catch (error) {
+        console.error('Failed to delete remote file:', error)
+      }
+    })
+
+    socket.value.on('file-renamed', (data) => {
+      if (!inCollabSession.value) return
+      console.log('File renamed by remote user:', data.oldPath, '->', data.newPath)
+
+      const fsStore = useFileSystemStore()
+      try {
+        fsStore.renameItem(data.oldPath, data.newPath)
+      } catch (error) {
+        console.error('Failed to rename remote file:', error)
+      }
+    })
+
+    socket.value.on('directory-created', (data) => {
+      if (!inCollabSession.value) return
+      console.log('Directory created by remote user:', data.path)
+
+      const fsStore = useFileSystemStore()
+      try {
+        fsStore.createDirectory(data.path)
+      } catch (error) {
+        console.error('Failed to create remote directory:', error)
+      }
+    })
+
+    socket.value.on('file-tree-sync', (data) => {
+      if (!inCollabSession.value) return
+      console.log('File tree synced from remote')
+
+      const fsStore = useFileSystemStore()
+      try {
+        fsStore.fileTree = JSON.parse(JSON.stringify(data.fileTree))
+        fsStore.syncWithEditorStore()
+      } catch (error) {
+        console.error('Failed to sync file tree:', error)
+      }
+    })
   }
 
   function createRoom(currentState) {
     if (!socket.value) initializeSocket()
 
+    const fsStore = useFileSystemStore()
+    const stateToSend = currentState || {
+      html: '',
+      css: '',
+      js: '',
+      fileTree: fsStore.fileTree,
+      activeFilePath: fsStore.activeFilePath
+    }
+
     return new Promise((resolve) => {
       socket.value.emit('create-room', {
         name: userName.value,
-        state: currentState || { html: '', css: '', js: '' }
+        state: stateToSend
       }, (response) => {
         if (response.success) {
           roomCode.value = response.roomCode
@@ -106,12 +190,22 @@ export const useCollaborationStore = defineStore('collaboration', () => {
           showRoomCodeDisplay.value = true
           showParticipantsPanel.value = true
 
-          // Load room state (current code)
+          // Load room state (current code and file tree)
           if (response.state) {
             const editorStore = useEditorStore()
-            editorStore.setCode('html', response.state.html || '')
-            editorStore.setCode('css', response.state.css || '')
-            editorStore.setCode('js', response.state.js || '')
+            const fsStore = useFileSystemStore()
+
+            // Load file tree if available
+            if (response.state.fileTree) {
+              fsStore.fileTree = JSON.parse(JSON.stringify(response.state.fileTree))
+              fsStore.activeFilePath = response.state.activeFilePath || '/index.html'
+              fsStore.syncWithEditorStore()
+            } else {
+              // Legacy format
+              editorStore.setCode('html', response.state.html || '')
+              editorStore.setCode('css', response.state.css || '')
+              editorStore.setCode('js', response.state.js || '')
+            }
             // The Preview.vue watcher will automatically trigger runCode()
           }
         } else {
@@ -153,6 +247,68 @@ export const useCollaborationStore = defineStore('collaboration', () => {
     }
   }
 
+  // File operation emitters
+  function emitFileCreated(path, content = '', binary = false) {
+    if (socket.value && inCollabSession.value) {
+      socket.value.emit('file-operation', {
+        roomCode: roomCode.value,
+        operation: 'file-created',
+        data: { path, content, binary }
+      })
+    }
+  }
+
+  function emitFileUpdated(path, content) {
+    if (socket.value && inCollabSession.value) {
+      socket.value.emit('file-operation', {
+        roomCode: roomCode.value,
+        operation: 'file-updated',
+        data: { path, content }
+      })
+    }
+  }
+
+  function emitFileDeleted(path) {
+    if (socket.value && inCollabSession.value) {
+      socket.value.emit('file-operation', {
+        roomCode: roomCode.value,
+        operation: 'file-deleted',
+        data: { path }
+      })
+    }
+  }
+
+  function emitFileRenamed(oldPath, newPath) {
+    if (socket.value && inCollabSession.value) {
+      socket.value.emit('file-operation', {
+        roomCode: roomCode.value,
+        operation: 'file-renamed',
+        data: { oldPath, newPath }
+      })
+    }
+  }
+
+  function emitDirectoryCreated(path) {
+    if (socket.value && inCollabSession.value) {
+      socket.value.emit('file-operation', {
+        roomCode: roomCode.value,
+        operation: 'directory-created',
+        data: { path }
+      })
+    }
+  }
+
+  function emitFileTreeSync() {
+    if (socket.value && inCollabSession.value) {
+      const fsStore = useFileSystemStore()
+      socket.value.emit('file-operation', {
+        roomCode: roomCode.value,
+        operation: 'file-tree-sync',
+        data: { fileTree: fsStore.fileTree }
+      })
+    }
+  }
+
   function hideRoomCode() {
     showRoomCodeDisplay.value = false
     showParticipantsPanel.value = false
@@ -180,6 +336,12 @@ export const useCollaborationStore = defineStore('collaboration', () => {
     leaveRoom,
     emitCodeChange,
     emitCursorMove,
+    emitFileCreated,
+    emitFileUpdated,
+    emitFileDeleted,
+    emitFileRenamed,
+    emitDirectoryCreated,
+    emitFileTreeSync,
     hideRoomCode,
     showRoomCode
   }
