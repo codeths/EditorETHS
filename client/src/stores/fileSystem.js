@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 
 export const useFileSystemStore = defineStore('fileSystem', () => {
   // Virtual file tree structure
@@ -159,7 +159,24 @@ export const useFileSystemStore = defineStore('fileSystem', () => {
   function updateActiveFile(content) {
     if (activeFilePath.value) {
       updateFile(activeFilePath.value, content)
+      // Sync with legacy editor store for preview compatibility
+      syncWithEditorStore()
     }
+  }
+
+  // Sync specific files with the legacy editor store (for preview and backward compatibility)
+  function syncWithEditorStore() {
+    // Only import when needed to avoid circular dependency
+    const { useEditorStore } = require('./editor')
+    const editorStore = useEditorStore()
+
+    const htmlFile = getFile('/index.html')
+    const cssFile = getFile('/styles.css')
+    const jsFile = getFile('/script.js')
+
+    if (htmlFile !== null) editorStore.setCode('html', htmlFile.content)
+    if (cssFile !== null) editorStore.setCode('css', cssFile.content)
+    if (jsFile !== null) editorStore.setCode('js', jsFile.content)
   }
 
   // Delete file or directory
@@ -315,6 +332,7 @@ export const useFileSystemStore = defineStore('fileSystem', () => {
     toggleDirectory,
     isDirectoryExpanded,
     collapseAll,
-    resetFileSystem
+    resetFileSystem,
+    syncWithEditorStore
   }
 })
