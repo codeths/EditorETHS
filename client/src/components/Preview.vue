@@ -182,8 +182,10 @@ async function runCode() {
       // User provided full HTML structure
       const consoleScript = createConsoleScript()
 
-      // 🛡️ IMPORTANT: Use type="module" for npm imports, but it won't break normal code
-      const userScript = `<script type="module">try{${js}}catch(error){console.error('Runtime Error: '+error.message)}<\/script>`
+      // 🔥 FIX: Extract imports to top level (they cannot be in try/catch)
+      const { imports, code: codeWithoutImports } = extractImports(js)
+      const userScript = `<script type="module">${imports}
+try{${codeWithoutImports}}catch(error){console.error('Runtime Error: '+error.message)}<\/script>`
 
       if (html.toLowerCase().includes('</body>')) {
         fullHTML = html.replace(/<\/body>/i, `${consoleScript}${userScript}</body>`)
@@ -201,6 +203,8 @@ async function runCode() {
       }
     } else {
       // User provided HTML fragments
+      // 🔥 FIX: Extract imports to top level (they cannot be in try/catch)
+      const { imports, code: codeWithoutImports } = extractImports(js)
       fullHTML = `<!DOCTYPE html>
 <html>
 <head>
@@ -211,7 +215,8 @@ async function runCode() {
 <body>
   ${html}
   ${createConsoleScript()}
-  <script type="module">try{${js}}catch(error){console.error('Runtime Error: '+error.message)}<\/script>
+  <script type="module">${imports}
+try{${codeWithoutImports}}catch(error){console.error('Runtime Error: '+error.message)}<\/script>
 </body>
 </html>`
     }
@@ -279,6 +284,57 @@ function addLoopProtection(code) {
   }
 }
 
+/**
+ * Extract import statements from code to place them at the top level
+ * This is necessary because import statements MUST be at the top level of a module
+ * and cannot be wrapped in try/catch blocks
+ */
+function extractImports(code) {
+  if (!code || !code.trim()) {
+    return { imports: '', code: code }
+  }
+
+  const imports = []
+  let codeWithoutImports = code
+
+  try {
+    // Match import statements
+    const importRegex = /^import\s+.*?from\s+['"].*?['"];?\s*$/gm
+    const dynamicImportRegex = /^import\s*\(.*?\);?\s*$/gm
+    const exportFromRegex = /^export\s+.*?from\s+['"].*?['"];?\s*$/gm
+
+    // Extract all import statements
+    let match
+
+    // Static imports
+    while ((match = importRegex.exec(code)) !== null) {
+      imports.push(match[0])
+      codeWithoutImports = codeWithoutImports.replace(match[0], '')
+    }
+
+    // Export from statements (also need to be at top level)
+    const exportMatches = code.match(exportFromRegex)
+    if (exportMatches) {
+      exportMatches.forEach(exp => {
+        imports.push(exp)
+        codeWithoutImports = codeWithoutImports.replace(exp, '')
+      })
+    }
+
+    // Clean up any extra whitespace
+    codeWithoutImports = codeWithoutImports.trim()
+
+  } catch (error) {
+    console.warn('⚠️ Failed to extract imports:', error)
+    return { imports: '', code: code }
+  }
+
+  return {
+    imports: imports.join('\n'),
+    code: codeWithoutImports
+  }
+}
+
 function openInNewWindow() {
   const html = editorStore.htmlCode
   const css = editorStore.cssCode
@@ -295,6 +351,9 @@ function openInNewWindow() {
     console.warn('⚠️ npm transformation failed for new window, using original code:', error)
   }
 
+  // 🔥 FIX: Extract imports to top level (they cannot be in try/catch)
+  const { imports, code: codeWithoutImports } = extractImports(js)
+
   const fullHTML = `
 <!DOCTYPE html>
 <html>
@@ -305,7 +364,8 @@ function openInNewWindow() {
 </head>
 <body>
   ${html}
-  <script type="module">${js}<\/script>
+  <script type="module">${imports}
+${codeWithoutImports}<\/script>
 </body>
 </html>
   `
