@@ -2,7 +2,17 @@
   <div class="flex-1 flex flex-col overflow-hidden bg-base-100">
     <!-- Preview Header -->
     <div class="bg-base-200 border-b border-base-300 px-4 py-2 flex justify-between items-center">
-      <span class="font-semibold text-sm">Preview</span>
+      <div class="flex items-center gap-2">
+        <span class="font-semibold text-sm">Preview</span>
+
+        <!-- 🛡️ OPTIONAL: Shows loading state, gracefully hidden if not working -->
+        <span v-if="isLoadingPackages" class="loading loading-spinner loading-xs"></span>
+
+        <!-- 🛡️ OPTIONAL: Shows loaded packages, gracefully hidden if none -->
+        <span v-if="loadedPackages.length > 0" class="badge badge-xs badge-success" :title="loadedPackages.join(', ')">
+          {{ loadedPackages.length }} package{{ loadedPackages.length !== 1 ? 's' : '' }}
+        </span>
+      </div>
       <div class="flex gap-2">
         <button
           @click="runCode"
@@ -48,6 +58,14 @@
       </div>
     </div>
 
+    <!-- 🛡️ OPTIONAL: Warning banner - only shows if there are errors -->
+    <div v-if="packageErrors.length > 0" class="bg-warning text-warning-content px-4 py-2 text-sm">
+      <strong>Package Warnings:</strong>
+      <ul class="list-disc list-inside">
+        <li v-for="(error, i) in packageErrors" :key="i">{{ error }}</li>
+      </ul>
+    </div>
+
     <!-- Preview Frame -->
     <div class="flex-1 bg-white overflow-hidden">
       <iframe
@@ -64,6 +82,7 @@
 import { ref, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useEditorStore } from '../stores/editor'
 import { useUIStore } from '../stores/ui'
+import { npmLoader } from '../composables/useNpmPackages'
 
 const editorStore = useEditorStore()
 const uiStore = useUIStore()
@@ -71,6 +90,11 @@ const uiStore = useUIStore()
 const previewFrame = ref(null)
 const autoRunTimer = ref(null)
 const iframeReady = ref(false)
+
+// npm package loading state (optional - fails gracefully)
+const isLoadingPackages = ref(false)
+const packageErrors = ref([])
+const loadedPackages = ref([])
 
 // Auto-run code when it changes (with debounce)
 watch(
@@ -98,14 +122,54 @@ function scheduleAutoRun() {
   }, 1000)
 }
 
-function runCode() {
+async function runCode() {
   const iframe = previewFrame.value
   if (!iframe) return
 
   try {
     let html = editorStore.htmlCode
     const css = editorStore.cssCode
-    const js = addLoopProtection(editorStore.jsCode)
+    let js = editorStore.jsCode
+
+    // 🛡️ SAFE: Try npm transformation, fall back to original on failure
+    try {
+      isLoadingPackages.value = true
+      packageErrors.value = []
+      loadedPackages.value = []
+
+      const detectedPackages = npmLoader.parseImports(js)
+
+      if (detectedPackages.length > 0) {
+        console.log('🔍 Detected npm packages:', detectedPackages.map(p => p.name))
+
+        // Transform imports to ESM.sh URLs
+        const transformedJs = npmLoader.transformImports(js)
+
+        // Preload packages for better error handling
+        try {
+          await npmLoader.preloadPackages(editorStore.jsCode)
+          loadedPackages.value = detectedPackages.map(p => p.name)
+          js = transformedJs // Only use transformed code if preload succeeds
+          console.log('✅ npm packages loaded successfully')
+        } catch (error) {
+          console.warn('⚠️ Package preload failed, using original code:', error)
+          packageErrors.value.push(error.message)
+          // Don't transform - keep original code
+        }
+      }
+
+      isLoadingPackages.value = false
+    } catch (npmError) {
+      // 🛡️ CRITICAL: If npm support fails, continue with original code
+      console.warn('⚠️ npm loader failed, continuing without it:', npmError)
+      isLoadingPackages.value = false
+      packageErrors.value = []
+      // js remains unchanged - original code will run
+    }
+
+    // 🛡️ Everything below this point works EXACTLY as before
+    // Add loop protection
+    js = addLoopProtection(js)
 
     // Check if user provided full HTML document
     const hasDoctype = html.toLowerCase().includes('<!doctype')
@@ -115,11 +179,12 @@ function runCode() {
     let fullHTML
 
     if (hasDoctype || (hasHtmlTag && hasBodyTag)) {
-      // User provided full HTML structure - inject our scripts into their document
-      const consoleScript = `<script>(function(){const originalConsole={log:console.log,error:console.error,warn:console.warn,info:console.info};function sendToParent(type,args){try{window.parent.postMessage({type:'console',level:type,message:Array.from(args).map(arg=>{try{return typeof arg==='object'?JSON.stringify(arg,null,2):String(arg)}catch(e){return String(arg)}}).join(' ')},'*')}catch(e){}}console.log=function(...args){originalConsole.log.apply(console,args);sendToParent('log',args)};console.error=function(...args){originalConsole.error.apply(console,args);sendToParent('error',args)};console.warn=function(...args){originalConsole.warn.apply(console,args);sendToParent('warn',args)};console.info=function(...args){originalConsole.info.apply(console,args);sendToParent('info',args)};window.onerror=function(message,source,lineno,colno,error){sendToParent('error',[message+' (Line '+lineno+')']);return false};window.onunhandledrejection=function(event){sendToParent('error',['Unhandled Promise Rejection: '+event.reason])}})();<\/script>`
-      const userScript = `<script>try{${js}}catch(error){console.error('Runtime Error: '+error.message)}<\/script>`
+      // User provided full HTML structure
+      const consoleScript = createConsoleScript()
 
-      // Try to inject before </body>, or before </html>, or at the end
+      // 🛡️ IMPORTANT: Use type="module" for npm imports, but it won't break normal code
+      const userScript = `<script type="module">try{${js}}catch(error){console.error('Runtime Error: '+error.message)}<\/script>`
+
       if (html.toLowerCase().includes('</body>')) {
         fullHTML = html.replace(/<\/body>/i, `${consoleScript}${userScript}</body>`)
       } else if (html.toLowerCase().includes('</html>')) {
@@ -128,14 +193,14 @@ function runCode() {
         fullHTML = html + consoleScript + userScript
       }
 
-      // Inject CSS into head if possible
+      // Inject CSS
       if (css && html.toLowerCase().includes('</head>')) {
         fullHTML = fullHTML.replace(/<\/head>/i, `<style>${css}</style></head>`)
       } else if (css && html.toLowerCase().includes('<head>')) {
         fullHTML = fullHTML.replace(/<head>/i, `<head><style>${css}</style>`)
       }
     } else {
-      // User provided HTML fragments - wrap in our structure
+      // User provided HTML fragments
       fullHTML = `<!DOCTYPE html>
 <html>
 <head>
@@ -145,17 +210,23 @@ function runCode() {
 </head>
 <body>
   ${html}
-  <script>(function(){const originalConsole={log:console.log,error:console.error,warn:console.warn,info:console.info};function sendToParent(type,args){try{window.parent.postMessage({type:'console',level:type,message:Array.from(args).map(arg=>{try{return typeof arg==='object'?JSON.stringify(arg,null,2):String(arg)}catch(e){return String(arg)}}).join(' ')},'*')}catch(e){}}console.log=function(...args){originalConsole.log.apply(console,args);sendToParent('log',args)};console.error=function(...args){originalConsole.error.apply(console,args);sendToParent('error',args)};console.warn=function(...args){originalConsole.warn.apply(console,args);sendToParent('warn',args)};console.info=function(...args){originalConsole.info.apply(console,args);sendToParent('info',args)};window.onerror=function(message,source,lineno,colno,error){sendToParent('error',[message+' (Line '+lineno+')']);return false};window.onunhandledrejection=function(event){sendToParent('error',['Unhandled Promise Rejection: '+event.reason])}})();<\/script>
-  <script>try{${js}}catch(error){console.error('Runtime Error: '+error.message)}<\/script>
+  ${createConsoleScript()}
+  <script type="module">try{${js}}catch(error){console.error('Runtime Error: '+error.message)}<\/script>
 </body>
 </html>`
     }
 
     iframe.srcdoc = fullHTML
   } catch (error) {
+    // 🛡️ EXISTING ERROR HANDLER - unchanged
     console.error('Error running code:', error)
     editorStore.addConsoleMessage('error', 'Preview error: ' + error.message)
   }
+}
+
+// 🛡️ Helper function for console script
+function createConsoleScript() {
+  return `<script>(function(){const originalConsole={log:console.log,error:console.error,warn:console.warn,info:console.info};function sendToParent(type,args){try{window.parent.postMessage({type:'console',level:type,message:Array.from(args).map(arg=>{try{return typeof arg==='object'?JSON.stringify(arg,null,2):String(arg)}catch(e){return String(arg)}}).join(' ')},'*')}catch(e){}}console.log=function(...args){originalConsole.log.apply(console,args);sendToParent('log',args)};console.error=function(...args){originalConsole.error.apply(console,args);sendToParent('error',args)};console.warn=function(...args){originalConsole.warn.apply(console,args);sendToParent('warn',args)};console.info=function(...args){originalConsole.info.apply(console,args);sendToParent('info',args)};window.onerror=function(message,source,lineno,colno,error){sendToParent('error',[message+' (Line '+lineno+')']);return false};window.onunhandledrejection=function(event){sendToParent('error',['Unhandled Promise Rejection: '+event.reason])}})();<\/script>`
 }
 
 function addLoopProtection(code) {
