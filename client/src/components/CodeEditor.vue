@@ -95,6 +95,16 @@
             {{ cursor.name }}
           </div>
         </div>
+
+        <!-- Find/Replace Panel -->
+        <FindReplace
+          :visible="findReplaceVisible"
+          :content="currentCode"
+          @close="closeFindReplace"
+          @find="handleFind"
+          @replace="handleReplace"
+          @replaceAll="handleReplaceAll"
+        />
       </div>
     </div>
 
@@ -148,6 +158,7 @@ import { useCollaborationStore } from '../stores/collaboration'
 import { useFileSystemStore } from '../stores/fileSystem'
 import { checkAutocompletePattern } from '../composables/useAutocomplete'
 import { searchEmojis, getEmojiTrigger, insertEmoji } from '../composables/useEmoji'
+import FindReplace from './FindReplace.vue'
 import hljs from 'highlight.js/lib/core'
 import javascript from 'highlight.js/lib/languages/javascript'
 import css from 'highlight.js/lib/languages/css'
@@ -186,6 +197,11 @@ let consoleResizeStartHeight = 0
 const emojiSuggestions = ref([])
 const selectedEmojiIndex = ref(0)
 const emojiPopupPos = ref({ x: 0, y: 0 })
+
+// Find/Replace
+const findReplaceVisible = ref(false)
+const findMatches = ref([])
+const currentFindIndex = ref(-1)
 
 const consoleMessages = computed(() => editorStore.consoleMessages)
 const currentSyntaxError = computed(() => {
@@ -549,6 +565,19 @@ function handleKeyDown(event) {
   const textarea = editorTextarea.value
   if (!textarea) return
 
+  // Handle Ctrl+F (or Cmd+F on Mac) to open Find/Replace
+  if ((event.ctrlKey || event.metaKey) && event.key === 'f') {
+    event.preventDefault()
+    findReplaceVisible.value = true
+    return
+  }
+
+  // Handle Escape to close Find/Replace
+  if (event.key === 'Escape' && findReplaceVisible.value) {
+    closeFindReplace()
+    return
+  }
+
   // Handle emoji autocomplete navigation
   if (emojiSuggestions.value.length > 0) {
     if (event.key === 'ArrowDown') {
@@ -605,6 +634,73 @@ function handleKeyDown(event) {
     setTimeout(() => {
       textarea.selectionStart = textarea.selectionEnd = start + 2
     }, 0)
+  }
+}
+
+// Find/Replace Functions
+function closeFindReplace() {
+  findReplaceVisible.value = false
+  findMatches.value = []
+  currentFindIndex.value = -1
+}
+
+function handleFind(data) {
+  findMatches.value = data.matches
+  currentFindIndex.value = data.currentIndex
+
+  // Scroll to current match
+  if (data.currentIndex >= 0 && data.matches.length > 0) {
+    const match = data.matches[data.currentIndex]
+    scrollToMatch(match)
+  }
+}
+
+function scrollToMatch(match) {
+  const textarea = editorTextarea.value
+  if (!textarea) return
+
+  // Set selection to the match
+  textarea.focus()
+  textarea.setSelectionRange(match.start, match.end)
+
+  // Calculate line number and scroll to it
+  const textBefore = currentCode.value.substring(0, match.start)
+  const lineNumber = textBefore.split('\n').length - 1
+  const lineHeight = parseFloat(window.getComputedStyle(textarea).lineHeight)
+  const scrollTop = lineNumber * lineHeight - textarea.clientHeight / 2
+
+  textarea.scrollTop = Math.max(0, scrollTop)
+}
+
+function handleReplace(data) {
+  const { match, replaceText } = data
+  const code = currentCode.value
+
+  // Replace the current match
+  const newCode = code.substring(0, match.start) + replaceText + code.substring(match.end)
+  currentCode.value = newCode
+
+  // Emit to collaboration if in session
+  if (collabStore.inCollabSession) {
+    collabStore.emitCodeChange(fsStore.activeFileExtension, newCode)
+  }
+}
+
+function handleReplaceAll(data) {
+  const { matches, replaceText } = data
+  let code = currentCode.value
+
+  // Replace all matches from last to first (to preserve indices)
+  for (let i = matches.length - 1; i >= 0; i--) {
+    const match = matches[i]
+    code = code.substring(0, match.start) + replaceText + code.substring(match.end)
+  }
+
+  currentCode.value = code
+
+  // Emit to collaboration if in session
+  if (collabStore.inCollabSession) {
+    collabStore.emitCodeChange(fsStore.activeFileExtension, code)
   }
 }
 

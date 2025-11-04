@@ -38,6 +38,18 @@
       <!-- Right Section -->
       <div class="flex items-center gap-2">
         <button
+          @click="openGitPanel"
+          class="btn btn-sm btn-ghost"
+          :class="{ 'btn-primary': gitStore.isInitialized }"
+          title="Git"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+          </svg>
+          Git
+        </button>
+
+        <button
           @click="openCollabMenu"
           class="btn btn-sm btn-ghost"
           :class="{ 'btn-success': inCollabSession }"
@@ -129,6 +141,32 @@
       </div>
     </div>
 
+    <!-- Git Components -->
+    <CloneDialog
+      :visible="showCloneDialog"
+      @close="showCloneDialog = false"
+      @cloned="handleCloned"
+    />
+
+    <div v-if="showGitPanel" class="fixed right-0 top-0 bottom-0 z-50 w-96 shadow-2xl border-l border-base-300">
+      <GitPanel
+        @close="showGitPanel = false"
+        @clone="openCloneDialog"
+        @branches="showBranchSwitcher = true"
+        @history="showCommitHistory = true"
+      />
+    </div>
+
+    <BranchSwitcher
+      :visible="showBranchSwitcher"
+      @close="showBranchSwitcher = false"
+    />
+
+    <CommitHistory
+      :visible="showCommitHistory"
+      @close="showCommitHistory = false"
+    />
+
   </div>
 </template>
 
@@ -137,14 +175,26 @@ import { ref, computed, watch } from 'vue'
 import { useProjectStore } from '../stores/project'
 import { useCollaborationStore } from '../stores/collaboration'
 import { useUIStore } from '../stores/ui'
+import { useGitStore } from '../stores/git'
+import CloneDialog from './CloneDialog.vue'
+import GitPanel from './GitPanel.vue'
+import BranchSwitcher from './BranchSwitcher.vue'
+import CommitHistory from './CommitHistory.vue'
 
 const projectStore = useProjectStore()
 const collabStore = useCollaborationStore()
 const uiStore = useUIStore()
+const gitStore = useGitStore()
 
 const joinRoomCode = ref('')
 const userName = ref('')
 const editableProjectName = ref('')
+
+// Git UI state
+const showGitPanel = ref(false)
+const showCloneDialog = ref(false)
+const showBranchSwitcher = ref(false)
+const showCommitHistory = ref(false)
 
 const currentProjectName = computed(() => projectStore.currentProjectName)
 const inCollabSession = computed(() => collabStore.inCollabSession)
@@ -237,5 +287,20 @@ function leaveRoom() {
 function copyRoomCode() {
   navigator.clipboard.writeText(collabStore.roomCode)
   uiStore.showNotification('Room code copied!', 'success')
+}
+
+// Git functions
+function openGitPanel() {
+  showGitPanel.value = true
+}
+
+function openCloneDialog() {
+  showCloneDialog.value = true
+}
+
+function handleCloned() {
+  // Refresh git panel after successful clone
+  showCloneDialog.value = false
+  showGitPanel.value = true
 }
 </script>
