@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed, watch } from 'vue'
+import { useEditorStore } from './editor'
 
 export const useFileSystemStore = defineStore('fileSystem', () => {
   // Virtual file tree structure
@@ -166,8 +167,6 @@ export const useFileSystemStore = defineStore('fileSystem', () => {
 
   // Sync specific files with the legacy editor store (for preview and backward compatibility)
   function syncWithEditorStore() {
-    // Only import when needed to avoid circular dependency
-    const { useEditorStore } = require('./editor')
     const editorStore = useEditorStore()
 
     const htmlFile = getFile('/index.html')
@@ -222,6 +221,48 @@ export const useFileSystemStore = defineStore('fileSystem', () => {
     // Update active file path if needed
     if (activeFilePath.value === oldPath) {
       activeFilePath.value = newPath
+    }
+  }
+
+  // Move file or directory to a new parent
+  function moveItem(oldPath, newPath) {
+    const item = getFile(oldPath) || getDirectory(oldPath)
+    if (!item) {
+      throw new Error('Item not found')
+    }
+
+    const oldParentPath = getParentPath(oldPath)
+    const oldName = getItemName(oldPath)
+    const oldParent = getDirectory(oldParentPath)
+
+    const newParentPath = getParentPath(newPath)
+    const newName = getItemName(newPath)
+    const newParent = getDirectory(newParentPath)
+
+    if (!oldParent) {
+      throw new Error('Source parent not found')
+    }
+
+    if (!newParent) {
+      throw new Error('Destination not found')
+    }
+
+    if (newParent.children[newName]) {
+      throw new Error('An item with that name already exists in the destination')
+    }
+
+    // Copy item to new location (deep clone)
+    newParent.children[newName] = JSON.parse(JSON.stringify(item))
+
+    // Remove from old location
+    delete oldParent.children[oldName]
+
+    // Update active file path if needed (handle both files and moved folders)
+    if (activeFilePath.value === oldPath) {
+      activeFilePath.value = newPath
+    } else if (activeFilePath.value.startsWith(oldPath + '/')) {
+      // Update paths of files inside moved folders
+      activeFilePath.value = activeFilePath.value.replace(oldPath, newPath)
     }
   }
 
@@ -326,6 +367,7 @@ export const useFileSystemStore = defineStore('fileSystem', () => {
     updateActiveFile,
     deleteItem,
     renameItem,
+    moveItem,
     getAllFiles,
     isFileModified,
     markFileSaved,
