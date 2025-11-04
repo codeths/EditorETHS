@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed, watch } from 'vue'
+import { useEditorStore } from './editor'
 
 export const useFileSystemStore = defineStore('fileSystem', () => {
   // Virtual file tree structure
@@ -166,8 +167,6 @@ export const useFileSystemStore = defineStore('fileSystem', () => {
 
   // Sync specific files with the legacy editor store (for preview and backward compatibility)
   function syncWithEditorStore() {
-    // Only import when needed to avoid circular dependency
-    const { useEditorStore } = require('./editor')
     const editorStore = useEditorStore()
 
     const htmlFile = getFile('/index.html')
