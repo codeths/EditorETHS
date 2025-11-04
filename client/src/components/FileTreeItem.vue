@@ -4,9 +4,15 @@
     <div
       @click="handleClick"
       @contextmenu.prevent="showContextMenu"
+      @dragstart="handleDragStart"
+      @dragover.prevent="handleDragOver"
+      @drop.prevent="handleDrop"
+      @dragleave="handleDragLeave"
+      :draggable="true"
       :class="[
-        'flex items-center gap-1 px-2 py-1 rounded cursor-pointer hover:bg-base-300 transition-colors',
+        'flex items-center gap-1 px-2 py-1 rounded cursor-move hover:bg-base-300 transition-colors',
         isActive && 'bg-primary text-primary-content',
+        isDragOver && 'bg-accent border-2 border-accent-focus',
         'text-sm'
       ]"
       :style="{ paddingLeft: (depth * 12 + 8) + 'px' }"
@@ -111,6 +117,7 @@ const expanded = ref(fsStore.isDirectoryExpanded(props.path))
 const contextMenuVisible = ref(false)
 const contextMenuX = ref(0)
 const contextMenuY = ref(0)
+const isDragOver = ref(false)
 
 const isDirectory = computed(() => props.item.type === 'directory')
 const isActive = computed(() => !isDirectory.value && fsStore.activeFilePath === props.path)
@@ -293,6 +300,54 @@ function deleteItem() {
     }
   }
   hideContextMenu()
+}
+
+// Drag and drop handlers
+function handleDragStart(e) {
+  e.dataTransfer.effectAllowed = 'move'
+  e.dataTransfer.setData('text/plain', props.path)
+  e.stopPropagation()
+}
+
+function handleDragOver(e) {
+  if (isDirectory.value) {
+    e.dataTransfer.dropEffect = 'move'
+    isDragOver.value = true
+  }
+}
+
+function handleDragLeave() {
+  isDragOver.value = false
+}
+
+function handleDrop(e) {
+  isDragOver.value = false
+
+  if (!isDirectory.value) return
+
+  const draggedPath = e.dataTransfer.getData('text/plain')
+  if (!draggedPath || draggedPath === props.path) return
+
+  // Prevent dropping a folder into itself or its children
+  if (props.path.startsWith(draggedPath + '/')) {
+    alert('Cannot move a folder into itself or its subfolder')
+    return
+  }
+
+  // Get the dragged item name
+  const draggedName = draggedPath.split('/').filter(p => p).pop()
+  const newPath = `${props.path}/${draggedName}`
+
+  try {
+    fsStore.moveItem(draggedPath, newPath)
+
+    // Emit collaboration event
+    collabStore.emitFileRenamed(draggedPath, newPath)
+  } catch (error) {
+    alert(error.message)
+  }
+
+  e.stopPropagation()
 }
 
 // Close context menu on outside click
