@@ -282,7 +282,18 @@ function addLoopProtection(code) {
 function openInNewWindow() {
   const html = editorStore.htmlCode
   const css = editorStore.cssCode
-  const js = editorStore.jsCode
+  let js = editorStore.jsCode
+
+  // Transform npm imports for new window too
+  try {
+    const detectedPackages = npmLoader.parseImports(js)
+    if (detectedPackages.length > 0) {
+      js = npmLoader.transformImports(js)
+      console.log('🔍 Transformed npm imports for new window')
+    }
+  } catch (error) {
+    console.warn('⚠️ npm transformation failed for new window, using original code:', error)
+  }
 
   const fullHTML = `
 <!DOCTYPE html>
@@ -294,7 +305,7 @@ function openInNewWindow() {
 </head>
 <body>
   ${html}
-  <script>${js}<\/script>
+  <script type="module">${js}<\/script>
 </body>
 </html>
   `
