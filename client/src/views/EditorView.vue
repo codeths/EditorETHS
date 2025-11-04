@@ -6,6 +6,9 @@
       <!-- Project Menu Sidebar -->
       <ProjectMenu />
 
+      <!-- File Tree -->
+      <FileTree />
+
       <!-- Main Editor Area -->
       <div ref="mainEditorContainer" class="flex-1 flex overflow-hidden relative">
         <div :style="{ width: editorWidth + '%' }" class="flex overflow-hidden">
@@ -37,6 +40,7 @@ import CodeEditor from '../components/CodeEditor.vue'
 import Preview from '../components/Preview.vue'
 import CollaborationPanel from '../components/CollaborationPanel.vue'
 import ProjectMenu from '../components/ProjectMenu.vue'
+import FileTree from '../components/FileTree.vue'
 
 // Resizable editor width
 const editorWidth = ref(50) // Default 50%

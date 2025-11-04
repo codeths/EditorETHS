@@ -1,18 +1,16 @@
 <template>
   <div class="flex-1 flex flex-col border-r border-base-300 overflow-hidden">
-    <!-- Tabs -->
-    <div class="tabs tabs-boxed bg-base-200 rounded-none border-b border-base-300 px-2 py-2">
-      <button
-        v-for="tab in tabs"
-        :key="tab.id"
-        @click="switchTab(tab.id)"
-        :class="[
-          'tab',
-          activeTab === tab.id && 'tab-active'
-        ]"
-      >
-        {{ tab.label }}
-      </button>
+    <!-- File Path Display -->
+    <div class="bg-base-200 rounded-none border-b border-base-300 px-4 py-2 flex items-center gap-2">
+      <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+      </svg>
+      <span class="text-sm font-mono">
+        {{ fsStore.activeFilePath || 'No file selected' }}
+      </span>
+      <span v-if="fsStore.activeFilePath && fsStore.isFileModified(fsStore.activeFilePath)" class="ml-auto text-xs text-warning">
+        Modified
+      </span>
     </div>
 
     <!-- Editor Area with 2-Layer System -->
@@ -52,7 +50,7 @@
           @select="emitCursorPosition"
           class="absolute inset-0 w-full h-full p-5 m-0 border-0 bg-transparent resize-none overflow-auto z-[2] whitespace-pre focus:outline-none"
           style="color: transparent; caret-color: white; font-family: 'Consolas', 'Monaco', monospace; font-size: 14px; line-height: 1.6; tab-size: 4; -moz-tab-size: 4;"
-          :placeholder="`Enter ${activeTab.toUpperCase()} code here...`"
+          :placeholder="`Enter code here...`"
           spellcheck="false"
         ></textarea>
 
@@ -147,6 +145,7 @@
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useEditorStore } from '../stores/editor'
 import { useCollaborationStore } from '../stores/collaboration'
+import { useFileSystemStore } from '../stores/fileSystem'
 import { checkAutocompletePattern } from '../composables/useAutocomplete'
 import { searchEmojis, getEmojiTrigger, insertEmoji } from '../composables/useEmoji'
 import hljs from 'highlight.js/lib/core'
@@ -163,6 +162,7 @@ hljs.registerLanguage('html', xml)
 
 const editorStore = useEditorStore()
 const collabStore = useCollaborationStore()
+const fsStore = useFileSystemStore()
 
 const editorTextarea = ref(null)
 const highlightLayer = ref(null)
@@ -187,21 +187,18 @@ const emojiSuggestions = ref([])
 const selectedEmojiIndex = ref(0)
 const emojiPopupPos = ref({ x: 0, y: 0 })
 
-const tabs = [
-  { id: 'html', label: 'HTML' },
-  { id: 'css', label: 'CSS' },
-  { id: 'js', label: 'JavaScript' }
-]
-
-const activeTab = computed(() => editorStore.activeTab)
 const consoleMessages = computed(() => editorStore.consoleMessages)
-const currentSyntaxError = computed(() => editorStore.syntaxErrors[activeTab.value])
+const currentSyntaxError = computed(() => {
+  const ext = fsStore.activeFileExtension
+  return editorStore.syntaxErrors[ext] || null
+})
 
 // Remote cursors for collaboration
 const remoteCursorsForCurrentTab = computed(() => {
   const cursors = {}
+  const currentExt = fsStore.activeFileExtension
   for (const [userId, cursor] of Object.entries(collabStore.remoteCursors)) {
-    if (cursor.editorType === activeTab.value) {
+    if (cursor.editorType === currentExt) {
       cursors[userId] = cursor
     }
   }
@@ -210,22 +207,20 @@ const remoteCursorsForCurrentTab = computed(() => {
 
 const currentCode = computed({
   get() {
-    switch (activeTab.value) {
-      case 'html': return editorStore.htmlCode
-      case 'css': return editorStore.cssCode
-      case 'js': return editorStore.jsCode
-      default: return ''
-    }
+    return fsStore.activeFileContent
   },
   set(value) {
-    editorStore.setCode(activeTab.value, value)
+    fsStore.updateActiveFile(value)
   }
 })
 
 function getLanguageClass() {
-  if (activeTab.value === 'js') return 'javascript'
-  if (activeTab.value === 'html') return 'xml'
-  return activeTab.value
+  const ext = fsStore.activeFileExtension
+  if (ext === 'js' || ext === 'jsx') return 'javascript'
+  if (ext === 'html') return 'xml'
+  if (ext === 'css' || ext === 'scss') return 'css'
+  if (ext === 'ts' || ext === 'tsx') return 'javascript' // For now, treat TypeScript as JavaScript
+  return 'javascript' // Default fallback
 }
 
 function updateHighlighting() {
@@ -314,12 +309,12 @@ function updateEditorHeight() {
   }
 }
 
-function switchTab(tab) {
-  editorStore.switchTab(tab)
+// Watch for active file changes
+watch(() => fsStore.activeFilePath, () => {
   nextTick(() => {
     updateHighlighting()
   })
-}
+})
 
 function handleCodeChange() {
   // Update syntax highlighting
@@ -338,7 +333,7 @@ function handleCodeChange() {
 
   // Emit code change to collaboration if in session
   if (collabStore.inCollabSession) {
-    collabStore.emitCodeChange(activeTab.value, currentCode.value)
+    collabStore.emitCodeChange(fsStore.activeFileExtension, currentCode.value)
     // Also emit cursor position
     emitCursorPosition()
   }
@@ -351,7 +346,7 @@ function emitCursorPosition() {
   if (!collabStore.inCollabSession || !editorTextarea.value) return
 
   const position = editorTextarea.value.selectionStart
-  collabStore.emitCursorMove(activeTab.value, position)
+  collabStore.emitCursorMove(fsStore.activeFileExtension, position)
 }
 
 function getCursorStyle(cursor) {
@@ -411,20 +406,20 @@ function scheduleSyntaxCheck() {
 }
 
 function checkSyntax() {
-  const type = activeTab.value
+  const ext = fsStore.activeFileExtension
   const code = currentCode.value
 
   if (!code.trim()) {
-    editorStore.setSyntaxError(type, null)
+    editorStore.setSyntaxError(ext, null)
     return
   }
 
   try {
-    if (type === 'html') {
+    if (ext === 'html') {
       checkHTMLSyntax(code)
-    } else if (type === 'css') {
+    } else if (ext === 'css' || ext === 'scss') {
       checkCSSSyntax(code)
-    } else if (type === 'js') {
+    } else if (ext === 'js' || ext === 'jsx' || ext === 'ts' || ext === 'tsx') {
       checkJSSyntax(code)
     }
   } catch (error) {

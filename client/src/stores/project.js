@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { useEditorStore } from './editor'
+import { useFileSystemStore } from './fileSystem'
 import { loadProjectsFromOPFS, saveProjectsToOPFS } from '../composables/useOPFS'
 
 export const useProjectStore = defineStore('project', () => {
@@ -37,12 +38,17 @@ export const useProjectStore = defineStore('project', () => {
 
   async function saveCurrentProject() {
     const editorStore = useEditorStore()
+    const fsStore = useFileSystemStore()
 
     if (!currentProjectId.value) {
       // Create new project
       const newProject = {
         id: Date.now().toString(),
         name: currentProjectName.value,
+        // Save entire file tree (new format)
+        fileTree: JSON.parse(JSON.stringify(fsStore.fileTree)),
+        activeFilePath: fsStore.activeFilePath,
+        // Keep legacy format for backward compatibility
         html: editorStore.htmlCode,
         css: editorStore.cssCode,
         js: editorStore.jsCode,
@@ -54,6 +60,8 @@ export const useProjectStore = defineStore('project', () => {
       // Update existing project
       const project = projects.value.find(p => p.id === currentProjectId.value)
       if (project) {
+        project.fileTree = JSON.parse(JSON.stringify(fsStore.fileTree))
+        project.activeFilePath = fsStore.activeFilePath
         project.html = editorStore.htmlCode
         project.css = editorStore.cssCode
         project.js = editorStore.jsCode
@@ -69,9 +77,48 @@ export const useProjectStore = defineStore('project', () => {
     const project = projects.value.find(p => p.id === projectId)
     if (project) {
       const editorStore = useEditorStore()
-      editorStore.setCode('html', project.html || '')
-      editorStore.setCode('css', project.css || '')
-      editorStore.setCode('js', project.js || '')
+      const fsStore = useFileSystemStore()
+
+      // Load new format (file tree)
+      if (project.fileTree) {
+        fsStore.fileTree = JSON.parse(JSON.stringify(project.fileTree))
+        fsStore.activeFilePath = project.activeFilePath || '/index.html'
+
+        // Sync with legacy editor store for backward compatibility
+        fsStore.syncWithEditorStore()
+      } else {
+        // Load old format (HTML/CSS/JS only) - backward compatibility
+        editorStore.setCode('html', project.html || '')
+        editorStore.setCode('css', project.css || '')
+        editorStore.setCode('js', project.js || '')
+
+        // Create file tree from old format
+        fsStore.fileTree = {
+          type: 'directory',
+          children: {
+            'index.html': {
+              type: 'file',
+              content: project.html || '',
+              binary: false,
+              modified: false
+            },
+            'styles.css': {
+              type: 'file',
+              content: project.css || '',
+              binary: false,
+              modified: false
+            },
+            'script.js': {
+              type: 'file',
+              content: project.js || '',
+              binary: false,
+              modified: false
+            }
+          }
+        }
+        fsStore.activeFilePath = '/index.html'
+      }
+
       currentProjectId.value = project.id
       currentProjectName.value = project.name
       isMenuOpen.value = false
@@ -89,7 +136,9 @@ export const useProjectStore = defineStore('project', () => {
 
   function createNewProject() {
     const editorStore = useEditorStore()
+    const fsStore = useFileSystemStore()
     editorStore.resetCode()
+    fsStore.resetFileSystem()
     currentProjectId.value = null
     currentProjectName.value = 'Untitled Project'
     isMenuOpen.value = false
