@@ -38,22 +38,6 @@
       <!-- Right Section -->
       <div class="flex items-center gap-2">
         <button
-          @click="handleExport"
-          class="btn btn-sm btn-ghost"
-          title="Export as ZIP"
-        >
-          Export
-        </button>
-
-        <button
-          @click="handleImport"
-          class="btn btn-sm btn-ghost"
-          title="Import Project"
-        >
-          Import
-        </button>
-
-        <button
           @click="openCollabMenu"
           class="btn btn-sm btn-ghost"
           :class="{ 'btn-success': inCollabSession }"
@@ -145,32 +129,19 @@
       </div>
     </div>
 
-    <!-- Hidden file input for import -->
-    <input
-      ref="fileInput"
-      type="file"
-      accept=".html,.css,.js,.zip"
-      multiple
-      style="display: none"
-      @change="handleFileUpload"
-    />
   </div>
 </template>
 
 <script setup>
-import { ref, computed, watch, nextTick } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useProjectStore } from '../stores/project'
 import { useCollaborationStore } from '../stores/collaboration'
 import { useUIStore } from '../stores/ui'
-import { useEditorStore } from '../stores/editor'
-import JSZip from 'jszip'
 
 const projectStore = useProjectStore()
 const collabStore = useCollaborationStore()
 const uiStore = useUIStore()
-const editorStore = useEditorStore()
 
-const fileInput = ref(null)
 const joinRoomCode = ref('')
 const userName = ref('')
 const editableProjectName = ref('')
@@ -205,157 +176,6 @@ function updateProjectName() {
     // Reset to current name if empty
     editableProjectName.value = projectStore.currentProjectName
   }
-}
-
-async function handleExport() {
-  const zip = new JSZip()
-  zip.file('index.html', editorStore.htmlCode)
-  zip.file('style.css', editorStore.cssCode)
-  zip.file('script.js', editorStore.jsCode)
-
-  const blob = await zip.generateAsync({ type: 'blob' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `${projectStore.currentProjectName}.zip`
-  a.click()
-  URL.revokeObjectURL(url)
-
-  uiStore.showNotification('Project exported!', 'success')
-}
-
-function handleImport() {
-  fileInput.value.click()
-}
-
-async function handleFileUpload(event) {
-  const files = Array.from(event.target.files)
-  if (files.length === 0) return
-
-  // Check if it's a zip file
-  const zipFile = files.find(f => f.name.endsWith('.zip'))
-  if (zipFile) {
-    await handleZipImport(zipFile)
-  } else {
-    await handleSeparateFilesImport(files)
-  }
-
-  event.target.value = ''
-}
-
-async function handleZipImport(zipFile) {
-  try {
-    const zip = await JSZip.loadAsync(zipFile)
-    const imported = { html: '', css: '', js: '' }
-
-    for (const [filename, file] of Object.entries(zip.files)) {
-      if (file.dir) continue
-
-      const content = await file.async('string')
-      const lower = filename.toLowerCase()
-      const basename = filename.split('/').pop().toLowerCase()
-
-      // Match any .html file (prioritize index.html)
-      if (lower.endsWith('.html')) {
-        if (basename.includes('index') || !imported.html) {
-          imported.html = content
-        }
-      }
-      // Match any .css file (prioritize style.css)
-      else if (lower.endsWith('.css')) {
-        if (basename.includes('style') || !imported.css) {
-          imported.css = content
-        }
-      }
-      // Match any .js file (prioritize script.js or main.js)
-      else if (lower.endsWith('.js')) {
-        if (basename.includes('script') || basename.includes('main') || !imported.js) {
-          imported.js = content
-        }
-      }
-    }
-
-    applyImport(imported)
-  } catch (error) {
-    uiStore.showNotification('Failed to import zip file', 'error')
-    console.error('Import error:', error)
-  }
-}
-
-async function handleSeparateFilesImport(files) {
-  const imported = { html: '', css: '', js: '' }
-
-  for (const file of files) {
-    try {
-      const content = await file.text()
-      const lower = file.name.toLowerCase()
-
-      if (lower.endsWith('.html')) {
-        imported.html = content
-      } else if (lower.endsWith('.css')) {
-        imported.css = content
-      } else if (lower.endsWith('.js')) {
-        imported.js = content
-      }
-    } catch (error) {
-      console.error('Error reading file:', file.name, error)
-    }
-  }
-
-  applyImport(imported)
-}
-
-function applyImport(imported) {
-  // Set code for each editor
-  if (imported.html) {
-    editorStore.setCode('html', imported.html)
-    // Emit to collaboration if in session
-    if (collabStore.inCollabSession) {
-      collabStore.emitCodeChange('html', imported.html)
-    }
-  }
-  if (imported.css) {
-    editorStore.setCode('css', imported.css)
-    // Emit to collaboration if in session
-    if (collabStore.inCollabSession) {
-      collabStore.emitCodeChange('css', imported.css)
-    }
-  }
-  if (imported.js) {
-    editorStore.setCode('js', imported.js)
-    // Emit to collaboration if in session
-    if (collabStore.inCollabSession) {
-      collabStore.emitCodeChange('js', imported.js)
-    }
-  }
-
-  // Reset project info
-  projectStore.currentProjectId = null
-  projectStore.currentProjectName = 'Imported Project'
-
-  // CRITICAL: Force update of all editor views
-  nextTick(() => {
-    // Trigger re-render of syntax highlighting and line numbers
-    const currentTab = editorStore.activeTab
-
-    // Force update on current tab
-    editorStore.switchTab('html')
-    nextTick(() => {
-      editorStore.switchTab(currentTab)
-    })
-  })
-
-  // Show success message with details
-  const filesImported = []
-  if (imported.html) filesImported.push('HTML')
-  if (imported.css) filesImported.push('CSS')
-  if (imported.js) filesImported.push('JS')
-
-  const message = filesImported.length > 0
-    ? `Imported: ${filesImported.join(', ')}`
-    : 'No files found to import'
-
-  uiStore.showNotification(message, filesImported.length > 0 ? 'success' : 'warning')
 }
 
 function openCollabMenu() {
