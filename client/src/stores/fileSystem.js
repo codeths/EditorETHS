@@ -31,6 +31,11 @@ export const useFileSystemStore = defineStore('fileSystem', () => {
   // Active file tracking
   const activeFilePath = ref('/index.html')
 
+  // Preview file tracking
+  const previewHtmlFile = ref('/index.html')
+  const previewCssFile = ref('/styles.css')
+  const previewJsFile = ref('/script.js')
+
   // Expanded directories tracking
   const expandedDirs = ref(new Set(['/']))
 
@@ -50,6 +55,22 @@ export const useFileSystemStore = defineStore('fileSystem', () => {
   const activeFileExtension = computed(() => {
     const name = activeFileName.value
     return name.includes('.') ? name.split('.').pop().toLowerCase() : ''
+  })
+
+  // Computed: Get preview file contents
+  const previewHtmlContent = computed(() => {
+    const file = getFile(previewHtmlFile.value)
+    return file ? file.content : ''
+  })
+
+  const previewCssContent = computed(() => {
+    const file = getFile(previewCssFile.value)
+    return file ? file.content : ''
+  })
+
+  const previewJsContent = computed(() => {
+    const file = getFile(previewJsFile.value)
+    return file ? file.content : ''
   })
 
   // Helper: Navigate to file in tree
@@ -169,13 +190,29 @@ export const useFileSystemStore = defineStore('fileSystem', () => {
   function syncWithEditorStore() {
     const editorStore = useEditorStore()
 
-    const htmlFile = getFile('/index.html')
-    const cssFile = getFile('/styles.css')
-    const jsFile = getFile('/script.js')
+    const htmlFile = getFile(previewHtmlFile.value)
+    const cssFile = getFile(previewCssFile.value)
+    const jsFile = getFile(previewJsFile.value)
 
     if (htmlFile !== null) editorStore.setCode('html', htmlFile.content)
     if (cssFile !== null) editorStore.setCode('css', cssFile.content)
     if (jsFile !== null) editorStore.setCode('js', jsFile.content)
+  }
+
+  // Set preview files
+  function setPreviewHtmlFile(path) {
+    previewHtmlFile.value = path
+    syncWithEditorStore()
+  }
+
+  function setPreviewCssFile(path) {
+    previewCssFile.value = path
+    syncWithEditorStore()
+  }
+
+  function setPreviewJsFile(path) {
+    previewJsFile.value = path
+    syncWithEditorStore()
   }
 
   // Delete file or directory
@@ -347,16 +384,59 @@ export const useFileSystemStore = defineStore('fileSystem', () => {
     expandedDirs.value = new Set(['/'])
   }
 
+  // Auto-detect preview files based on common naming conventions
+  function autoDetectPreviewFiles() {
+    const allFiles = getAllFiles()
+
+    // Find HTML file (prefer index.html, main.html, or first .html)
+    const htmlFiles = allFiles.filter(path => path.endsWith('.html') || path.endsWith('.htm'))
+    if (htmlFiles.length > 0) {
+      const indexFile = htmlFiles.find(p => p.includes('index.html'))
+      const mainFile = htmlFiles.find(p => p.includes('main.html'))
+      previewHtmlFile.value = indexFile || mainFile || htmlFiles[0]
+    }
+
+    // Find CSS file (prefer styles.css, style.css, main.css, or first .css)
+    const cssFiles = allFiles.filter(path =>
+      path.endsWith('.css') || path.endsWith('.scss')
+    )
+    if (cssFiles.length > 0) {
+      const stylesFile = cssFiles.find(p => p.includes('styles.css') || p.includes('style.css'))
+      const mainFile = cssFiles.find(p => p.includes('main.css'))
+      previewCssFile.value = stylesFile || mainFile || cssFiles[0]
+    }
+
+    // Find JS file (prefer script.js, main.js, app.js, or first .js)
+    const jsFiles = allFiles.filter(path =>
+      path.endsWith('.js') && !path.includes('node_modules')
+    )
+    if (jsFiles.length > 0) {
+      const scriptFile = jsFiles.find(p => p.includes('script.js'))
+      const mainFile = jsFiles.find(p => p.includes('main.js'))
+      const appFile = jsFiles.find(p => p.includes('app.js'))
+      previewJsFile.value = scriptFile || mainFile || appFile || jsFiles[0]
+    }
+
+    // Sync after detection
+    syncWithEditorStore()
+  }
+
   return {
     // State
     fileTree,
     activeFilePath,
     expandedDirs,
+    previewHtmlFile,
+    previewCssFile,
+    previewJsFile,
 
     // Computed
     activeFileContent,
     activeFileName,
     activeFileExtension,
+    previewHtmlContent,
+    previewCssContent,
+    previewJsContent,
 
     // Actions
     getFile,
@@ -375,6 +455,10 @@ export const useFileSystemStore = defineStore('fileSystem', () => {
     isDirectoryExpanded,
     collapseAll,
     resetFileSystem,
-    syncWithEditorStore
+    syncWithEditorStore,
+    setPreviewHtmlFile,
+    setPreviewCssFile,
+    setPreviewJsFile,
+    autoDetectPreviewFiles
   }
 })
