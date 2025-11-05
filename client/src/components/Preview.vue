@@ -122,6 +122,33 @@ function scheduleAutoRun() {
   }, 1000)
 }
 
+/**
+ * Detect if JavaScript code uses ES6 modules
+ * @param {string} code - JavaScript code to check
+ * @returns {boolean} - True if code uses import/export statements
+ */
+function hasESModules(code) {
+  if (!code || !code.trim()) return false
+
+  // Split into lines to check each line
+  const lines = code.split('\n')
+
+  for (const line of lines) {
+    const trimmed = line.trim()
+
+    // Skip comments and empty lines
+    if (trimmed.startsWith('//') || trimmed.startsWith('/*') || !trimmed) continue
+
+    // Check for import statements
+    if (/^import\s+/.test(trimmed)) return true
+
+    // Check for export statements
+    if (/^export\s+(default|const|let|var|function|class|{|\*)/.test(trimmed)) return true
+  }
+
+  return false
+}
+
 async function runCode() {
   const iframe = previewFrame.value
   if (!iframe) return
@@ -130,6 +157,9 @@ async function runCode() {
     let html = editorStore.htmlCode
     const css = editorStore.cssCode
     let js = editorStore.jsCode
+
+    // 🔥 SMART: Detect if we need module mode
+    const needsModuleMode = hasESModules(js)
 
     // 🛡️ SAFE: Try npm transformation, fall back to original on failure
     try {
@@ -195,9 +225,11 @@ async function runCode() {
       // User provided full HTML structure
       const consoleScript = createConsoleScript()
 
-      // 🔥 FIX: Extract imports to top level (they cannot be in try/catch)
-      const { imports, code: codeWithoutImports } = extractImports(js)
-      const userScript = `<script type="module">
+      // 🔥 SMART: Only extract imports if in module mode
+      let userScript
+      if (needsModuleMode) {
+        const { imports, code: codeWithoutImports } = extractImports(js)
+        userScript = `<script type="module">
 ${imports}
 try {
 ${codeWithoutImports}
@@ -206,6 +238,17 @@ ${codeWithoutImports}
   console.error('Stack:', error.stack);
 }
 <\/script>`
+      } else {
+        // Normal script tag - onclick handlers work!
+        userScript = `<script>
+try {
+${js}
+} catch(error) {
+  console.error('Runtime Error:', error);
+  console.error('Stack:', error.stack);
+}
+<\/script>`
+      }
 
       if (html.toLowerCase().includes('</body>')) {
         fullHTML = html.replace(/<\/body>/i, `${consoleScript}${userScript}</body>`)
@@ -223,8 +266,33 @@ ${codeWithoutImports}
       }
     } else {
       // User provided HTML fragments
-      // 🔥 FIX: Extract imports to top level (they cannot be in try/catch)
-      const { imports, code: codeWithoutImports } = extractImports(js)
+      const consoleScript = createConsoleScript()
+
+      // 🔥 SMART: Only extract imports if in module mode
+      let scriptTag
+      if (needsModuleMode) {
+        const { imports, code: codeWithoutImports } = extractImports(js)
+        scriptTag = `<script type="module">
+${imports}
+try {
+${codeWithoutImports}
+} catch(error) {
+  console.error('Runtime Error:', error);
+  console.error('Stack:', error.stack);
+}
+<\/script>`
+      } else {
+        // Normal script tag - onclick handlers work!
+        scriptTag = `<script>
+try {
+${js}
+} catch(error) {
+  console.error('Runtime Error:', error);
+  console.error('Stack:', error.stack);
+}
+<\/script>`
+      }
+
       fullHTML = `<!DOCTYPE html>
 <html>
 <head>
@@ -234,16 +302,8 @@ ${codeWithoutImports}
 </head>
 <body>
   ${html}
-  ${createConsoleScript()}
-  <script type="module">
-${imports}
-try {
-${codeWithoutImports}
-} catch(error) {
-  console.error('Runtime Error:', error);
-  console.error('Stack:', error.stack);
-}
-<\/script>
+  ${consoleScript}
+  ${scriptTag}
 </body>
 </html>`
     }
@@ -356,6 +416,9 @@ function openInNewWindow() {
   const css = editorStore.cssCode
   let js = editorStore.jsCode
 
+  // 🔥 SMART: Detect if we need module mode
+  const needsModuleMode = hasESModules(js)
+
   // Transform npm imports for new window too
   try {
     const detectedPackages = npmLoader.parseImports(js)
@@ -367,8 +430,15 @@ function openInNewWindow() {
     console.warn('⚠️ npm transformation failed for new window, using original code:', error)
   }
 
-  // 🔥 FIX: Extract imports to top level (they cannot be in try/catch)
-  const { imports, code: codeWithoutImports } = extractImports(js)
+  // 🔥 SMART: Only use module mode if needed
+  let scriptTag
+  if (needsModuleMode) {
+    const { imports, code: codeWithoutImports } = extractImports(js)
+    scriptTag = `<script type="module">${imports}
+${codeWithoutImports}<\/script>`
+  } else {
+    scriptTag = `<script>${js}<\/script>`
+  }
 
   const fullHTML = `
 <!DOCTYPE html>
@@ -380,8 +450,7 @@ function openInNewWindow() {
 </head>
 <body>
   ${html}
-  <script type="module">${imports}
-${codeWithoutImports}<\/script>
+  ${scriptTag}
 </body>
 </html>
   `
