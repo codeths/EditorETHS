@@ -249,19 +249,43 @@ export const useFileSystemStore = defineStore('fileSystem', () => {
   }
 
   // Set preview files
-  function setPreviewHtmlFile(path) {
+  function setPreviewHtmlFile(path, skipBroadcast = false) {
     previewHtmlFile.value = path
     syncWithEditorStore()
+
+    // Emit to collaborators
+    if (!skipBroadcast) {
+      const collab = getCollabStore()
+      if (collab && collab.inCollabSession) {
+        collab.emitFileTreeSync()
+      }
+    }
   }
 
-  function setPreviewCssFile(path) {
+  function setPreviewCssFile(path, skipBroadcast = false) {
     previewCssFile.value = path
     syncWithEditorStore()
+
+    // Emit to collaborators
+    if (!skipBroadcast) {
+      const collab = getCollabStore()
+      if (collab && collab.inCollabSession) {
+        collab.emitFileTreeSync()
+      }
+    }
   }
 
-  function setPreviewJsFile(path) {
+  function setPreviewJsFile(path, skipBroadcast = false) {
     previewJsFile.value = path
     syncWithEditorStore()
+
+    // Emit to collaborators
+    if (!skipBroadcast) {
+      const collab = getCollabStore()
+      if (collab && collab.inCollabSession) {
+        collab.emitFileTreeSync()
+      }
+    }
   }
 
   // Delete file or directory
