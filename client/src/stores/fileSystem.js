@@ -217,6 +217,15 @@ export const useFileSystemStore = defineStore('fileSystem', () => {
     file.content = content
     file.modified = true
 
+    // If this is a preview file, sync with editor store so Preview component updates
+    const isPreviewFile = path === previewHtmlFile.value ||
+                         path === previewCssFile.value ||
+                         path === previewJsFile.value
+
+    if (isPreviewFile) {
+      syncWithEditorStore()
+    }
+
     // Broadcast to collaborators (unless this came from a remote event)
     if (!skipBroadcast) {
       const collab = getCollabStore()
@@ -306,7 +315,38 @@ export const useFileSystemStore = defineStore('fileSystem', () => {
       activeFilePath.value = otherFile || null
     }
 
+    // Check if deleting a preview file - need to find replacement or clear
+    let needsSync = false
+    if (previewHtmlFile.value === path || previewHtmlFile.value.startsWith(path + '/')) {
+      // Try to find another HTML file
+      const files = getAllFiles()
+      const htmlFile = files.find(f => f !== path && (f.endsWith('.html') || f.endsWith('.htm')))
+      previewHtmlFile.value = htmlFile || '/index.html'
+      needsSync = true
+    }
+
+    if (previewCssFile.value === path || previewCssFile.value.startsWith(path + '/')) {
+      // Try to find another CSS file
+      const files = getAllFiles()
+      const cssFile = files.find(f => f !== path && f.endsWith('.css'))
+      previewCssFile.value = cssFile || '/styles.css'
+      needsSync = true
+    }
+
+    if (previewJsFile.value === path || previewJsFile.value.startsWith(path + '/')) {
+      // Try to find another JS file
+      const files = getAllFiles()
+      const jsFile = files.find(f => f !== path && f.endsWith('.js'))
+      previewJsFile.value = jsFile || '/script.js'
+      needsSync = true
+    }
+
     delete parent.children[itemName]
+
+    // Sync with editor store if preview files were affected
+    if (needsSync) {
+      syncWithEditorStore()
+    }
 
     // Broadcast to collaborators (unless this came from a remote event)
     if (!skipBroadcast) {
@@ -339,6 +379,26 @@ export const useFileSystemStore = defineStore('fileSystem', () => {
     // Update active file path if needed
     if (activeFilePath.value === oldPath) {
       activeFilePath.value = newPath
+    }
+
+    // Update preview file paths if they match the renamed file
+    let needsSync = false
+    if (previewHtmlFile.value === oldPath) {
+      previewHtmlFile.value = newPath
+      needsSync = true
+    }
+    if (previewCssFile.value === oldPath) {
+      previewCssFile.value = newPath
+      needsSync = true
+    }
+    if (previewJsFile.value === oldPath) {
+      previewJsFile.value = newPath
+      needsSync = true
+    }
+
+    // Sync with editor store if preview files were affected
+    if (needsSync) {
+      syncWithEditorStore()
     }
 
     // Broadcast to collaborators (unless this came from a remote event)
@@ -389,6 +449,37 @@ export const useFileSystemStore = defineStore('fileSystem', () => {
     } else if (activeFilePath.value.startsWith(oldPath + '/')) {
       // Update paths of files inside moved folders
       activeFilePath.value = activeFilePath.value.replace(oldPath, newPath)
+    }
+
+    // Update preview file paths if they match the moved file
+    let needsSync = false
+    if (previewHtmlFile.value === oldPath) {
+      previewHtmlFile.value = newPath
+      needsSync = true
+    } else if (previewHtmlFile.value.startsWith(oldPath + '/')) {
+      previewHtmlFile.value = previewHtmlFile.value.replace(oldPath, newPath)
+      needsSync = true
+    }
+
+    if (previewCssFile.value === oldPath) {
+      previewCssFile.value = newPath
+      needsSync = true
+    } else if (previewCssFile.value.startsWith(oldPath + '/')) {
+      previewCssFile.value = previewCssFile.value.replace(oldPath, newPath)
+      needsSync = true
+    }
+
+    if (previewJsFile.value === oldPath) {
+      previewJsFile.value = newPath
+      needsSync = true
+    } else if (previewJsFile.value.startsWith(oldPath + '/')) {
+      previewJsFile.value = previewJsFile.value.replace(oldPath, newPath)
+      needsSync = true
+    }
+
+    // Sync with editor store if preview files were affected
+    if (needsSync) {
+      syncWithEditorStore()
     }
 
     // Broadcast to collaborators (unless this came from a remote event)
