@@ -137,10 +137,14 @@ import { ref, computed, watch } from 'vue'
 import { useProjectStore } from '../stores/project'
 import { useCollaborationStore } from '../stores/collaboration'
 import { useUIStore } from '../stores/ui'
+import { useEditorStore } from '../stores/editor'
+import { useFileSystemStore } from '../stores/fileSystem'
 
 const projectStore = useProjectStore()
 const collabStore = useCollaborationStore()
 const uiStore = useUIStore()
+const editorStore = useEditorStore()
+const fsStore = useFileSystemStore()
 
 const joinRoomCode = ref('')
 const userName = ref('')
@@ -195,10 +199,12 @@ async function createRoom() {
   }
 
   // Get current code state to share with room
+  // Send entire file tree instead of just 3 files
   const currentState = {
     html: editorStore.htmlCode,
     css: editorStore.cssCode,
-    js: editorStore.jsCode
+    js: editorStore.jsCode,
+    fileTree: fsStore.fileTree // Send entire file tree to collaborators
   }
 
   const response = await collabStore.createRoom(currentState)
