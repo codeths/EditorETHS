@@ -144,6 +144,17 @@ export const useCollaborationStore = defineStore('collaboration', () => {
         // Deep clone to trigger reactivity
         fsStore.fileTree = JSON.parse(JSON.stringify(data.fileTree))
 
+        // Sync preview file selections if provided
+        if (data.previewHtmlFile) {
+          fsStore.previewHtmlFile = data.previewHtmlFile
+        }
+        if (data.previewCssFile) {
+          fsStore.previewCssFile = data.previewCssFile
+        }
+        if (data.previewJsFile) {
+          fsStore.previewJsFile = data.previewJsFile
+        }
+
         // Validate active file path still exists
         const files = fsStore.getAllFiles()
         if (!files.includes(fsStore.activeFilePath)) {
@@ -181,7 +192,10 @@ export const useCollaborationStore = defineStore('collaboration', () => {
       css: '',
       js: '',
       fileTree: fsStore.fileTree,
-      activeFilePath: fsStore.activeFilePath
+      activeFilePath: fsStore.activeFilePath,
+      previewHtmlFile: fsStore.previewHtmlFile,
+      previewCssFile: fsStore.previewCssFile,
+      previewJsFile: fsStore.previewJsFile
     }
 
     return new Promise((resolve) => {
@@ -227,6 +241,18 @@ export const useCollaborationStore = defineStore('collaboration', () => {
             if (response.state.fileTree) {
               fsStore.fileTree = JSON.parse(JSON.stringify(response.state.fileTree))
               fsStore.activeFilePath = response.state.activeFilePath || '/index.html'
+
+              // Sync preview file selections from host
+              if (response.state.previewHtmlFile) {
+                fsStore.previewHtmlFile = response.state.previewHtmlFile
+              }
+              if (response.state.previewCssFile) {
+                fsStore.previewCssFile = response.state.previewCssFile
+              }
+              if (response.state.previewJsFile) {
+                fsStore.previewJsFile = response.state.previewJsFile
+              }
+
               fsStore.syncWithEditorStore()
             } else {
               // Legacy format
@@ -332,7 +358,12 @@ export const useCollaborationStore = defineStore('collaboration', () => {
       socket.value.emit('file-operation', {
         roomCode: roomCode.value,
         operation: 'file-tree-sync',
-        data: { fileTree: fsStore.fileTree }
+        data: {
+          fileTree: fsStore.fileTree,
+          previewHtmlFile: fsStore.previewHtmlFile,
+          previewCssFile: fsStore.previewCssFile,
+          previewJsFile: fsStore.previewJsFile
+        }
       })
     }
   }
