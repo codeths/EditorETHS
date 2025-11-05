@@ -1,8 +1,18 @@
 import { defineStore } from 'pinia'
 import { ref, computed, watch } from 'vue'
 import { useEditorStore } from './editor'
+import { useCollaborationStore } from './collaboration'
 
 export const useFileSystemStore = defineStore('fileSystem', () => {
+  // Get collaboration store (lazy initialization to avoid circular dependencies)
+  let collabStore = null
+  function getCollabStore() {
+    if (!collabStore) {
+      collabStore = useCollaborationStore()
+    }
+    return collabStore
+  }
+
   // Virtual file tree structure
   const fileTree = ref({
     type: 'directory',
@@ -73,6 +83,21 @@ export const useFileSystemStore = defineStore('fileSystem', () => {
     return file ? file.content : ''
   })
 
+  // Watch for active file changes and broadcast to collaborators
+  watch(activeFilePath, (newPath, oldPath) => {
+    const collab = getCollabStore()
+    if (collab.inCollabSession && newPath !== oldPath) {
+      // Broadcast active file change
+      if (collab.socket) {
+        collab.socket.emit('file-operation', {
+          roomCode: collab.roomCode,
+          operation: 'active-file-changed',
+          data: { path: newPath }
+        })
+      }
+    }
+  })
+
   // Helper: Navigate to file in tree
   function getFile(path) {
     if (!path || path === '/') return null
@@ -122,7 +147,7 @@ export const useFileSystemStore = defineStore('fileSystem', () => {
   }
 
   // Create a new file
-  function createFile(path, content = '', binary = false) {
+  function createFile(path, content = '', binary = false, skipBroadcast = false) {
     const parentPath = getParentPath(path)
     const fileName = getItemName(path)
     const parent = getDirectory(parentPath)
@@ -141,10 +166,18 @@ export const useFileSystemStore = defineStore('fileSystem', () => {
       binary,
       modified: false
     }
+
+    // Broadcast to collaborators (unless this came from a remote event)
+    if (!skipBroadcast) {
+      const collab = getCollabStore()
+      if (collab.inCollabSession) {
+        collab.emitFileCreated(path, content, binary)
+      }
+    }
   }
 
   // Create a new directory
-  function createDirectory(path) {
+  function createDirectory(path, skipBroadcast = false) {
     const parentPath = getParentPath(path)
     const dirName = getItemName(path)
     const parent = getDirectory(parentPath)
@@ -164,10 +197,18 @@ export const useFileSystemStore = defineStore('fileSystem', () => {
 
     // Auto-expand the parent directory
     expandedDirs.value.add(parentPath)
+
+    // Broadcast to collaborators (unless this came from a remote event)
+    if (!skipBroadcast) {
+      const collab = getCollabStore()
+      if (collab.inCollabSession) {
+        collab.emitDirectoryCreated(path)
+      }
+    }
   }
 
   // Update file content
-  function updateFile(path, content) {
+  function updateFile(path, content, skipBroadcast = false) {
     const file = getFile(path)
     if (!file) {
       throw new Error('File not found')
@@ -175,6 +216,14 @@ export const useFileSystemStore = defineStore('fileSystem', () => {
 
     file.content = content
     file.modified = true
+
+    // Broadcast to collaborators (unless this came from a remote event)
+    if (!skipBroadcast) {
+      const collab = getCollabStore()
+      if (collab.inCollabSession) {
+        collab.emitFileUpdated(path, content)
+      }
+    }
   }
 
   // Update active file content
@@ -216,7 +265,7 @@ export const useFileSystemStore = defineStore('fileSystem', () => {
   }
 
   // Delete file or directory
-  function deleteItem(path) {
+  function deleteItem(path, skipBroadcast = false) {
     const parentPath = getParentPath(path)
     const itemName = getItemName(path)
     const parent = getDirectory(parentPath)
@@ -234,10 +283,18 @@ export const useFileSystemStore = defineStore('fileSystem', () => {
     }
 
     delete parent.children[itemName]
+
+    // Broadcast to collaborators (unless this came from a remote event)
+    if (!skipBroadcast) {
+      const collab = getCollabStore()
+      if (collab.inCollabSession) {
+        collab.emitFileDeleted(path)
+      }
+    }
   }
 
   // Rename file or directory
-  function renameItem(oldPath, newPath) {
+  function renameItem(oldPath, newPath, skipBroadcast = false) {
     const parentPath = getParentPath(oldPath)
     const oldName = getItemName(oldPath)
     const newName = getItemName(newPath)
@@ -259,10 +316,18 @@ export const useFileSystemStore = defineStore('fileSystem', () => {
     if (activeFilePath.value === oldPath) {
       activeFilePath.value = newPath
     }
+
+    // Broadcast to collaborators (unless this came from a remote event)
+    if (!skipBroadcast) {
+      const collab = getCollabStore()
+      if (collab.inCollabSession) {
+        collab.emitFileRenamed(oldPath, newPath)
+      }
+    }
   }
 
   // Move file or directory to a new parent
-  function moveItem(oldPath, newPath) {
+  function moveItem(oldPath, newPath, skipBroadcast = false) {
     const item = getFile(oldPath) || getDirectory(oldPath)
     if (!item) {
       throw new Error('Item not found')
@@ -300,6 +365,14 @@ export const useFileSystemStore = defineStore('fileSystem', () => {
     } else if (activeFilePath.value.startsWith(oldPath + '/')) {
       // Update paths of files inside moved folders
       activeFilePath.value = activeFilePath.value.replace(oldPath, newPath)
+    }
+
+    // Broadcast to collaborators (unless this came from a remote event)
+    if (!skipBroadcast) {
+      const collab = getCollabStore()
+      if (collab.inCollabSession) {
+        collab.emitFileRenamed(oldPath, newPath)
+      }
     }
   }
 
