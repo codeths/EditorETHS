@@ -616,6 +616,10 @@ function handleKeyDown(event) {
   }
 }
 
+// Track scroll position for remote updates to prevent auto-scrolling
+const savedScrollPosition = ref({ top: 0, left: 0 })
+const isRemoteUpdate = ref(false)
+
 // Watch for code changes from collaboration or other sources
 watch(() => currentCode.value, () => {
   updateHighlighting()
@@ -623,6 +627,13 @@ watch(() => currentCode.value, () => {
   // Force scroll sync between textarea and highlight layers
   nextTick(() => {
     if (editorTextarea.value) {
+      // If this was a remote update, restore the saved scroll position
+      if (isRemoteUpdate.value) {
+        editorTextarea.value.scrollTop = savedScrollPosition.value.top
+        editorTextarea.value.scrollLeft = savedScrollPosition.value.left
+        isRemoteUpdate.value = false // Reset flag
+      }
+
       scrollPosition.value = {
         top: editorTextarea.value.scrollTop,
         left: editorTextarea.value.scrollLeft
@@ -632,6 +643,9 @@ watch(() => currentCode.value, () => {
       if (highlightLayer.value) {
         highlightLayer.value.scrollTop = editorTextarea.value.scrollTop
         highlightLayer.value.scrollLeft = editorTextarea.value.scrollLeft
+      }
+      if (lineNumbers.value) {
+        lineNumbers.value.scrollTop = editorTextarea.value.scrollTop
       }
     }
   })
@@ -643,6 +657,16 @@ onMounted(() => {
 
   if (collabStore.socket) {
     collabStore.socket.on('code-update', (data) => {
+      // Save scroll position BEFORE updating code to prevent auto-scroll
+      if (editorTextarea.value) {
+        savedScrollPosition.value = {
+          top: editorTextarea.value.scrollTop,
+          left: editorTextarea.value.scrollLeft
+        }
+      }
+
+      // Mark as remote update so watcher restores scroll position
+      isRemoteUpdate.value = true
       editorStore.setCode(data.editorType, data.content)
     })
   }
