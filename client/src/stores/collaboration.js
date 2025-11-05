@@ -76,7 +76,8 @@ export const useCollaborationStore = defineStore('collaboration', () => {
 
       const fsStore = useFileSystemStore()
       try {
-        fsStore.createFile(data.path, data.content || '', data.binary || false)
+        // skipBroadcast=true to prevent infinite loops
+        fsStore.createFile(data.path, data.content || '', data.binary || false, true)
       } catch (error) {
         console.error('Failed to create remote file:', error)
       }
@@ -88,7 +89,8 @@ export const useCollaborationStore = defineStore('collaboration', () => {
 
       const fsStore = useFileSystemStore()
       try {
-        fsStore.updateFile(data.path, data.content)
+        // skipBroadcast=true to prevent infinite loops
+        fsStore.updateFile(data.path, data.content, true)
       } catch (error) {
         console.error('Failed to update remote file:', error)
       }
@@ -100,7 +102,8 @@ export const useCollaborationStore = defineStore('collaboration', () => {
 
       const fsStore = useFileSystemStore()
       try {
-        fsStore.deleteItem(data.path)
+        // skipBroadcast=true to prevent infinite loops
+        fsStore.deleteItem(data.path, true)
       } catch (error) {
         console.error('Failed to delete remote file:', error)
       }
@@ -112,7 +115,8 @@ export const useCollaborationStore = defineStore('collaboration', () => {
 
       const fsStore = useFileSystemStore()
       try {
-        fsStore.renameItem(data.oldPath, data.newPath)
+        // skipBroadcast=true to prevent infinite loops
+        fsStore.renameItem(data.oldPath, data.newPath, true)
       } catch (error) {
         console.error('Failed to rename remote file:', error)
       }
@@ -124,7 +128,8 @@ export const useCollaborationStore = defineStore('collaboration', () => {
 
       const fsStore = useFileSystemStore()
       try {
-        fsStore.createDirectory(data.path)
+        // skipBroadcast=true to prevent infinite loops
+        fsStore.createDirectory(data.path, true)
       } catch (error) {
         console.error('Failed to create remote directory:', error)
       }
@@ -136,10 +141,33 @@ export const useCollaborationStore = defineStore('collaboration', () => {
 
       const fsStore = useFileSystemStore()
       try {
+        // Deep clone to trigger reactivity
         fsStore.fileTree = JSON.parse(JSON.stringify(data.fileTree))
+
+        // Validate active file path still exists
+        const files = fsStore.getAllFiles()
+        if (!files.includes(fsStore.activeFilePath)) {
+          // Active file was deleted, switch to first available
+          fsStore.activeFilePath = files[0] || null
+        }
+
+        // Force re-sync with editor
         fsStore.syncWithEditorStore()
+
+        // Force Vue to re-render the file tree
+        fsStore.expandedDirs = new Set(fsStore.expandedDirs)
       } catch (error) {
         console.error('Failed to sync file tree:', error)
+      }
+    })
+
+    socket.value.on('file-operation', (data) => {
+      if (!inCollabSession.value) return
+
+      if (data.operation === 'active-file-changed') {
+        console.log('Remote user switched to file:', data.data.path)
+        // Optional: You could show a notification here
+        // For now, just log it - you could add UI indicators later
       }
     })
   }

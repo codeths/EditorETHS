@@ -169,6 +169,7 @@ const highlightLayer = ref(null)
 const highlightCode = ref(null)
 const lineNumbers = ref(null)
 const syntaxCheckTimer = ref(null)
+const updateDebounceTimer = ref(null) // Debounce collaboration updates
 const highlightedCode = ref('')
 const totalLines = ref(1)
 
@@ -331,11 +332,18 @@ function handleCodeChange() {
   // Check for emoji autocomplete
   checkEmojiAutocomplete()
 
-  // Emit code change to collaboration if in session
+  // Debounced: Emit code change to collaboration if in session
   if (collabStore.inCollabSession) {
-    collabStore.emitCodeChange(fsStore.activeFileExtension, currentCode.value)
-    // Also emit cursor position
-    emitCursorPosition()
+    // Clear existing timer
+    if (updateDebounceTimer.value) {
+      clearTimeout(updateDebounceTimer.value)
+    }
+
+    // Set new timer - only emit after 500ms of no typing
+    updateDebounceTimer.value = setTimeout(() => {
+      collabStore.emitCodeChange(fsStore.activeFileExtension, currentCode.value)
+      emitCursorPosition()
+    }, 500)
   }
 
   // Schedule syntax check
