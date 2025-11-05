@@ -229,8 +229,8 @@ async function confirmImport() {
       mergeFileTree(fsStore.fileTree, importedTree)
     }
 
-    // Sync with editor store
-    fsStore.syncWithEditorStore()
+    // Auto-detect preview files after import
+    fsStore.autoDetectPreviewFiles()
 
     emit('import', {
       count: previewFiles.value.length,

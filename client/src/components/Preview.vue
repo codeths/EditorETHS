@@ -168,6 +168,19 @@ async function runCode() {
     }
 
     // 🛡️ Everything below this point works EXACTLY as before
+    // Validate JS before injecting to catch syntax errors early
+    if (js && js.trim()) {
+      try {
+        // Try to parse the JS to catch syntax errors early
+        new Function(js)
+      } catch (syntaxError) {
+        console.error('JavaScript syntax error:', syntaxError)
+        editorStore.addConsoleMessage('error', `Syntax Error: ${syntaxError.message}`)
+        // Don't inject broken JS into iframe
+        js = `console.error("JavaScript syntax error: ${syntaxError.message.replace(/"/g, '\\"')}");`
+      }
+    }
+
     // Add loop protection
     js = addLoopProtection(js)
 
@@ -184,8 +197,15 @@ async function runCode() {
 
       // 🔥 FIX: Extract imports to top level (they cannot be in try/catch)
       const { imports, code: codeWithoutImports } = extractImports(js)
-      const userScript = `<script type="module">${imports}
-try{${codeWithoutImports}}catch(error){console.error('Runtime Error: '+error.message)}<\/script>`
+      const userScript = `<script type="module">
+${imports}
+try {
+${codeWithoutImports}
+} catch(error) {
+  console.error('Runtime Error:', error);
+  console.error('Stack:', error.stack);
+}
+<\/script>`
 
       if (html.toLowerCase().includes('</body>')) {
         fullHTML = html.replace(/<\/body>/i, `${consoleScript}${userScript}</body>`)
@@ -215,8 +235,15 @@ try{${codeWithoutImports}}catch(error){console.error('Runtime Error: '+error.mes
 <body>
   ${html}
   ${createConsoleScript()}
-  <script type="module">${imports}
-try{${codeWithoutImports}}catch(error){console.error('Runtime Error: '+error.message)}<\/script>
+  <script type="module">
+${imports}
+try {
+${codeWithoutImports}
+} catch(error) {
+  console.error('Runtime Error:', error);
+  console.error('Stack:', error.stack);
+}
+<\/script>
 </body>
 </html>`
     }
@@ -295,43 +322,32 @@ function extractImports(code) {
   }
 
   const imports = []
-  let codeWithoutImports = code
+  const codeLines = []
 
   try {
-    // Match import statements
-    const importRegex = /^import\s+.*?from\s+['"].*?['"];?\s*$/gm
-    const dynamicImportRegex = /^import\s*\(.*?\);?\s*$/gm
-    const exportFromRegex = /^export\s+.*?from\s+['"].*?['"];?\s*$/gm
+    // Process line by line to safely extract imports
+    const lines = code.split('\n')
 
-    // Extract all import statements
-    let match
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim()
 
-    // Static imports
-    while ((match = importRegex.exec(code)) !== null) {
-      imports.push(match[0])
-      codeWithoutImports = codeWithoutImports.replace(match[0], '')
+      // Check if line starts with import or export...from
+      if (line.startsWith('import ') || (line.startsWith('export ') && line.includes(' from '))) {
+        imports.push(lines[i]) // Keep original indentation
+      } else {
+        codeLines.push(lines[i])
+      }
     }
 
-    // Export from statements (also need to be at top level)
-    const exportMatches = code.match(exportFromRegex)
-    if (exportMatches) {
-      exportMatches.forEach(exp => {
-        imports.push(exp)
-        codeWithoutImports = codeWithoutImports.replace(exp, '')
-      })
+    return {
+      imports: imports.join('\n'),
+      code: codeLines.join('\n').trim()
     }
-
-    // Clean up any extra whitespace
-    codeWithoutImports = codeWithoutImports.trim()
 
   } catch (error) {
     console.warn('⚠️ Failed to extract imports:', error)
+    // CRITICAL: Return original code on error, don't break
     return { imports: '', code: code }
-  }
-
-  return {
-    imports: imports.join('\n'),
-    code: codeWithoutImports
   }
 }
 

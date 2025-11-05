@@ -74,6 +74,27 @@
           Open
         </button>
         <button
+          v-if="!isDirectory && isHtmlFile"
+          @click="setAsPreviewHtml"
+          class="w-full px-4 py-2 text-left hover:bg-base-300 text-sm"
+        >
+          Set as Preview HTML
+        </button>
+        <button
+          v-if="!isDirectory && isCssFile"
+          @click="setAsPreviewCss"
+          class="w-full px-4 py-2 text-left hover:bg-base-300 text-sm"
+        >
+          Set as Preview CSS
+        </button>
+        <button
+          v-if="!isDirectory && isJsFile"
+          @click="setAsPreviewJs"
+          class="w-full px-4 py-2 text-left hover:bg-base-300 text-sm"
+        >
+          Set as Preview JS
+        </button>
+        <button
           @click="rename"
           class="w-full px-4 py-2 text-left hover:bg-base-300 text-sm"
         >
@@ -102,6 +123,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useFileSystemStore } from '../stores/fileSystem'
 import { useCollaborationStore } from '../stores/collaboration'
+import { useUIStore } from '../stores/ui'
 
 const props = defineProps({
   name: String,
@@ -112,6 +134,7 @@ const props = defineProps({
 
 const fsStore = useFileSystemStore()
 const collabStore = useCollaborationStore()
+const uiStore = useUIStore()
 
 const expanded = ref(fsStore.isDirectoryExpanded(props.path))
 const contextMenuVisible = ref(false)
@@ -122,6 +145,22 @@ const isDragOver = ref(false)
 const isDirectory = computed(() => props.item.type === 'directory')
 const isActive = computed(() => !isDirectory.value && fsStore.activeFilePath === props.path)
 const isModified = computed(() => fsStore.isFileModified(props.path))
+
+// File type checks for context menu
+const isHtmlFile = computed(() => {
+  const ext = props.name.split('.').pop()?.toLowerCase()
+  return ext === 'html' || ext === 'htm'
+})
+
+const isCssFile = computed(() => {
+  const ext = props.name.split('.').pop()?.toLowerCase()
+  return ext === 'css' || ext === 'scss'
+})
+
+const isJsFile = computed(() => {
+  const ext = props.name.split('.').pop()?.toLowerCase()
+  return ext === 'js' || ext === 'jsx'
+})
 
 function getIcon() {
   if (isDirectory.value) {
@@ -299,6 +338,25 @@ function deleteItem() {
       alert(error.message)
     }
   }
+  hideContextMenu()
+}
+
+// Set preview file handlers
+function setAsPreviewHtml() {
+  fsStore.setPreviewHtmlFile(props.path)
+  uiStore.showNotification(`Preview HTML set to ${props.name}`, 'success')
+  hideContextMenu()
+}
+
+function setAsPreviewCss() {
+  fsStore.setPreviewCssFile(props.path)
+  uiStore.showNotification(`Preview CSS set to ${props.name}`, 'success')
+  hideContextMenu()
+}
+
+function setAsPreviewJs() {
+  fsStore.setPreviewJsFile(props.path)
+  uiStore.showNotification(`Preview JS set to ${props.name}`, 'success')
   hideContextMenu()
 }
 
