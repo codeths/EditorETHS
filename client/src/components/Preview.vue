@@ -81,10 +81,12 @@
 <script setup>
 import { ref, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useEditorStore } from '../stores/editor'
+import { useFileSystemStore } from '../stores/fileSystem'
 import { useUIStore } from '../stores/ui'
 import { npmLoader } from '../composables/useNpmPackages'
 
 const editorStore = useEditorStore()
+const fsStore = useFileSystemStore()
 const uiStore = useUIStore()
 
 const previewFrame = ref(null)
@@ -97,11 +99,16 @@ const packageErrors = ref([])
 const loadedPackages = ref([])
 
 // Auto-run code when it changes (with debounce)
+// Watch both the legacy editor store AND the file tree preview content
+// This ensures preview updates regardless of which system is used
 watch(
   [
     () => editorStore.htmlCode,
     () => editorStore.cssCode,
-    () => editorStore.jsCode
+    () => editorStore.jsCode,
+    () => fsStore.previewHtmlContent,
+    () => fsStore.previewCssContent,
+    () => fsStore.previewJsContent
   ],
   () => {
     scheduleAutoRun()

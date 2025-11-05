@@ -227,6 +227,58 @@ io.on('connection', (socket) => {
     });
   });
 
+  // Handle file operations (create, update, delete, rename, etc.)
+  socket.on('file-operation', (data) => {
+    const { roomCode, operation, data: opData } = data;
+    const room = rooms.get(roomCode);
+
+    if (!room) {
+      console.log(`Room not found: ${roomCode}`);
+      return;
+    }
+
+    // Update room state if needed
+    room.lastUpdate = Date.now();
+
+    // Store file tree in room state for new joiners
+    if (operation === 'file-tree-sync' && opData.fileTree) {
+      room.state.fileTree = opData.fileTree;
+      room.state.previewHtmlFile = opData.previewHtmlFile;
+      room.state.previewCssFile = opData.previewCssFile;
+      room.state.previewJsFile = opData.previewJsFile;
+    }
+
+    console.log(`Broadcasting file operation '${operation}' in room ${roomCode} (${room.participants.size - 1} other users)`);
+
+    // Broadcast the specific operation to others in the room
+    switch (operation) {
+      case 'file-created':
+        socket.to(roomCode).emit('file-created', opData);
+        break;
+      case 'file-updated':
+        socket.to(roomCode).emit('file-updated', opData);
+        break;
+      case 'file-deleted':
+        socket.to(roomCode).emit('file-deleted', opData);
+        break;
+      case 'file-renamed':
+        socket.to(roomCode).emit('file-renamed', opData);
+        break;
+      case 'directory-created':
+        socket.to(roomCode).emit('directory-created', opData);
+        break;
+      case 'file-tree-sync':
+        socket.to(roomCode).emit('file-tree-sync', opData);
+        break;
+      case 'active-file-changed':
+        // Optional: Could be used for showing what other users are editing
+        socket.to(roomCode).emit('file-operation', { operation, data: opData });
+        break;
+      default:
+        console.log(`Unknown file operation: ${operation}`);
+    }
+  });
+
   // Handle disconnect
   socket.on('disconnect', () => {
     console.log(`Client disconnected: ${socket.id}`);
